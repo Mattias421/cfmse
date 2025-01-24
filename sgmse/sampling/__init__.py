@@ -1,5 +1,6 @@
 # Adapted from https://github.com/yang-song/score_sde_pytorch/blob/1618ddea340f3e4a2ed7852a0694a809775cf8d0/sampling.py
 """Various sampling methods."""
+
 from scipy import integrate
 import torch
 
@@ -8,8 +9,11 @@ from .correctors import Corrector, CorrectorRegistry
 
 
 __all__ = [
-    'PredictorRegistry', 'CorrectorRegistry', 'Predictor', 'Corrector',
-    'get_sampler'
+    "PredictorRegistry",
+    "CorrectorRegistry",
+    "Predictor",
+    "Corrector",
+    "get_sampler",
 ]
 
 
@@ -24,9 +28,18 @@ def from_flattened_numpy(x, shape):
 
 
 def get_pc_sampler(
-    predictor_name, corrector_name, sde, score_fn, y,
-    denoise=True, eps=3e-2, snr=0.1, corrector_steps=1, probability_flow: bool = False,
-    intermediate=False, **kwargs
+    predictor_name,
+    corrector_name,
+    sde,
+    score_fn,
+    y,
+    denoise=True,
+    eps=3e-2,
+    snr=0.1,
+    corrector_steps=1,
+    probability_flow: bool = False,
+    intermediate=False,
+    **kwargs,
 ):
     """Create a Predictor-Corrector (PC) sampler.
 
@@ -57,23 +70,31 @@ def get_pc_sampler(
             for i in range(sde.N):
                 t = timesteps[i]
                 if i != len(timesteps) - 1:
-                    stepsize = t - timesteps[i+1]
+                    stepsize = t - timesteps[i + 1]
                 else:
-                    stepsize = timesteps[-1] # from eps to 0
+                    stepsize = timesteps[-1]  # from eps to 0
                 vec_t = torch.ones(y.shape[0], device=y.device) * t
                 xt, xt_mean = corrector.update_fn(xt, y, vec_t)
                 xt, xt_mean = predictor.update_fn(xt, y, vec_t, stepsize)
             x_result = xt_mean if denoise else xt
             ns = sde.N * (corrector.n_steps + 1)
             return x_result, ns
-    
+
     return pc_sampler
 
 
 def get_ode_sampler(
-    sde, score_fn, y, inverse_scaler=None,
-    denoise=True, rtol=1e-5, atol=1e-5,
-    method='RK45', eps=3e-2, device='cuda', **kwargs
+    sde,
+    score_fn,
+    y,
+    inverse_scaler=None,
+    denoise=True,
+    rtol=1e-5,
+    atol=1e-5,
+    method="RK45",
+    eps=3e-2,
+    device="cuda",
+    **kwargs,
 ):
     """Probability flow ODE sampler with the black-box ODE solver.
 
@@ -126,11 +147,21 @@ def get_ode_sampler(
 
             # Black-box ODE solver for the probability flow ODE
             solution = integrate.solve_ivp(
-                ode_func, (sde.T, eps), to_flattened_numpy(x),
-                rtol=rtol, atol=atol, method=method, **kwargs
+                ode_func,
+                (sde.T, eps),
+                to_flattened_numpy(x),
+                rtol=rtol,
+                atol=atol,
+                method=method,
+                **kwargs,
             )
             nfe = solution.nfev
-            x = torch.tensor(solution.y[:, -1]).reshape(y.shape).to(device).type(torch.complex64)
+            x = (
+                torch.tensor(solution.y[:, -1])
+                .reshape(y.shape)
+                .to(device)
+                .type(torch.complex64)
+            )
 
             # Denoising is equivalent to running one predictor step without adding noise
             if denoise:
@@ -142,30 +173,37 @@ def get_ode_sampler(
 
     return ode_sampler
 
+
 def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kwargs):
     # adapted from https://github.com/NVIDIA/NeMo/blob/78357ae99ff2cf9f179f53fbcb02c88a5a67defb/nemo/collections/audio/parts/submodules/schroedinger_bridge.py#L382
     def sde_sampler():
         """The SB-SDE sampler function."""
         with torch.no_grad():
-            xt = y[:, [0], :, :] # special case for storm_2ch
+            xt = y[:, [0], :, :]  # special case for storm_2ch
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
 
             # Initial values
             time_prev = time_steps[0] * torch.ones(xt.shape[0], device=xt.device)
-            sigma_prev, sigma_T, sigma_bar_prev, alpha_prev, alpha_T, alpha_bar_prev = sde._sigmas_alphas(time_prev)
+            sigma_prev, sigma_T, sigma_bar_prev, alpha_prev, alpha_T, alpha_bar_prev = (
+                sde._sigmas_alphas(time_prev)
+            )
 
             for t in time_steps[1:]:
                 # Prepare time steps for the whole batch
                 time = t * torch.ones(xt.shape[0], device=xt.device)
 
                 # Get noise schedule for current time
-                sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = sde._sigmas_alphas(time)
+                sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
+                    sde._sigmas_alphas(time)
+                )
 
                 # Run DNN
                 current_estimate = model(xt, y, time)
 
                 # Calculate scaling for the first-order discretization from the paper
-                weight_prev = alpha_t * sigma_t**2 / (alpha_prev * sigma_prev**2 + sde.eps)
+                weight_prev = (
+                    alpha_t * sigma_t**2 / (alpha_prev * sigma_prev**2 + sde.eps)
+                )
                 tmp = 1 - sigma_t**2 / (sigma_prev**2 + sde.eps)
                 weight_estimate = alpha_t * tmp
                 weight_z = alpha_t * sigma_t * torch.sqrt(tmp)
@@ -177,12 +215,16 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
 
                 # Random sample
                 z_norm = torch.randn_like(xt)
-                
+
                 if t == time_steps[-1]:
                     weight_z = 0.0
 
                 # Update state: weighted sum of previous state, current estimate and noise
-                xt = weight_prev * xt + weight_estimate * current_estimate + weight_z * z_norm
+                xt = (
+                    weight_prev * xt
+                    + weight_estimate * current_estimate
+                    + weight_z * z_norm
+                )
 
                 # Save previous values
                 time_prev = time
@@ -200,29 +242,44 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
 
             # Initial values
             time_prev = time_steps[0] * torch.ones(xt.shape[0], device=xt.device)
-            sigma_prev, sigma_T, sigma_bar_prev, alpha_prev, alpha_T, alpha_bar_prev = sde._sigmas_alphas(time_prev)
+            sigma_prev, sigma_T, sigma_bar_prev, alpha_prev, alpha_T, alpha_bar_prev = (
+                sde._sigmas_alphas(time_prev)
+            )
 
             for t in time_steps[1:]:
                 # Prepare time steps for the whole batch
                 time = t * torch.ones(xt.shape[0], device=xt.device)
 
                 # Get noise schedule for current time
-                sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = sde._sigmas_alphas(time)
+                sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
+                    sde._sigmas_alphas(time)
+                )
 
                 # Run DNN
                 current_estimate = model(xt, y, time)
 
                 # Calculate scaling for the first-order discretization from the paper
-                weight_prev = alpha_t * sigma_t * sigma_bart / (alpha_prev * sigma_prev * sigma_bar_prev + sde.eps)
+                weight_prev = (
+                    alpha_t
+                    * sigma_t
+                    * sigma_bart
+                    / (alpha_prev * sigma_prev * sigma_bar_prev + sde.eps)
+                )
                 weight_estimate = (
                     alpha_t
                     / (sigma_T**2 + sde.eps)
-                    * (sigma_bart**2 - sigma_bar_prev * sigma_t * sigma_bart / (sigma_prev + sde.eps))
+                    * (
+                        sigma_bart**2
+                        - sigma_bar_prev * sigma_t * sigma_bart / (sigma_prev + sde.eps)
+                    )
                 )
                 weight_prior_mean = (
                     alpha_t
                     / (alpha_T * sigma_T**2 + sde.eps)
-                    * (sigma_t**2 - sigma_prev * sigma_t * sigma_bart / (sigma_bar_prev + sde.eps))
+                    * (
+                        sigma_t**2
+                        - sigma_prev * sigma_t * sigma_bart / (sigma_bar_prev + sde.eps)
+                    )
                 )
 
                 # View as [B, C, D, T]
@@ -231,7 +288,11 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
                 weight_prior_mean = weight_prior_mean[:, None, None, None]
 
                 # Update state: weighted sum of previous state, current estimate and prior
-                xt = weight_prev * xt + weight_estimate * current_estimate + weight_prior_mean * y
+                xt = (
+                    weight_prev * xt
+                    + weight_estimate * current_estimate
+                    + weight_prior_mean * y
+                )
 
                 # Save previous values
                 time_prev = time
@@ -240,7 +301,7 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
                 sigma_bar_prev = sigma_bart
 
             return xt, n_steps
-    
+
     if sampler_type == "sde":
         return sde_sampler
     elif sampler_type == "ode":

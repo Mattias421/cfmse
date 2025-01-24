@@ -17,9 +17,12 @@ class Registry:
     def register(self, name: str) -> Callable:
         def inner_wrapper(wrapped_class) -> Callable:
             if name in self._registry:
-                warnings.warn(f"{self.managed_thing} with name '{name}' doubly registered, old class will be replaced.")
+                warnings.warn(
+                    f"{self.managed_thing} with name '{name}' doubly registered, old class will be replaced."
+                )
             self._registry[name] = wrapped_class
             return wrapped_class
+
         return inner_wrapper
 
     def get_by_name(self, name: str):

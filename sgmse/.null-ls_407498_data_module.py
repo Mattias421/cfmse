@@ -80,7 +80,6 @@ class Specs(Dataset):
         x, _ = load(self.clean_files[i])
         y, _ = load(self.noisy_files[i])
 
-
         # formula applies for center=True
         target_len = (self.num_frames - 1) * self.hop_length
         current_len = x.size(-1)
@@ -101,9 +100,9 @@ class Specs(Dataset):
         # normalize w.r.t to the noisy or the clean signal or not at all
         # to ensure same clean signal power in x and y.
         if self.normalize == "noisy":
-            normfac, _ = y.abs().max(dim=1)
+            normfac = y.abs().max()
         elif self.normalize == "clean":
-            normfac, _ = x.abs().max(dim=1)
+            normfac = x.abs().max()
         elif self.normalize == "not":
             normfac = 1.0
         x = x / normfac

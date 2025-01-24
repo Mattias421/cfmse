@@ -10,7 +10,8 @@ def batch_broadcast(a, x):
 
     if a.shape[0] != x.shape[0] and a.shape[0] != 1:
         raise ValueError(
-            f"Don't know how to batch-broadcast shape {a.shape} over {x.shape} as the batch dimension is not matching")
+            f"Don't know how to batch-broadcast shape {a.shape} over {x.shape} as the batch dimension is not matching"
+        )
 
-    out = a.view((x.shape[0], *(1 for _ in range(len(x.shape)-1))))
+    out = a.view((x.shape[0], *(1 for _ in range(len(x.shape) - 1))))
     return out
