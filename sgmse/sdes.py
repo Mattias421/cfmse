@@ -443,7 +443,7 @@ class ICFM(SDE):
 
     def copy(self):
         return ICFM(
-            self.sigma,
+            self.cfm.sigma,
             N=self.N,
             sampler_type=self.sampler_type,
         )

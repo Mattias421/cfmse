@@ -422,6 +422,9 @@ class ScoreModel(pl.LightningModule):
             elif self.loss_type == "data_prediction":
                 x_hat = self._c_skip(t) * x_t + self._c_out(t) * F
                 return x_hat
+            elif self.loss_type == "flow_matching":
+                x_hat = F
+                return x_hat
 
         # In [1] and [2], we use the old code:
         else:
@@ -612,6 +615,24 @@ class ScoreModel(pl.LightningModule):
             sampler = self.get_sb_sampler(
                 sde=self.sde, y=Y.cuda(), sampler_type=self.sde.sampler_type
             )
+        elif self.sde.__class__.__name__ == "ICFM":
+            if self.sde.sampler_type == "pc":
+                sampler = self.get_pc_sampler(
+                    predictor,
+                    corrector,
+                    Y.cuda(),
+                    N=N,
+                    corrector_steps=corrector_steps,
+                    snr=snr,
+                    intermediate=False,
+                    **kwargs,
+                )
+            elif self.sde.sampler_type == "ode":
+                sampler = self.get_ode_sampler(Y.cuda(), N=N, **kwargs)
+            else:
+                raise ValueError(
+                    "Invalid sampler type for SGMSE sampling: {}".format(sampler_type)
+                )
         else:
             raise ValueError(
                 "Invalid SDE type for speech enhancement: {}".format(
