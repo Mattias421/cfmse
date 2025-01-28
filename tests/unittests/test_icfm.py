@@ -3,7 +3,7 @@ import torch
 from argparse import ArgumentParser
 
 # Assuming ICFM, SDE, ConditionalFlowMatcher, pad_t_like_x are defined in a module named 'your_module'
-from sgmse.sdes import ICFM, pad_t_like_x  # Replace your_module
+from sgmse.sdes import ICFM
 
 
 # Mock SDE class for inheritance testing
@@ -46,34 +46,34 @@ def test_T(icfm_instance):
 
 def test_mean(icfm_instance):
     batch_size = 10
-    x0 = torch.randn(batch_size, 3, 32, 32)
+    x = torch.randn(batch_size, 3, 32, 32)
     y = torch.randn(batch_size, 3, 32, 32)
 
     # Test t = 1
     t1 = torch.ones(batch_size)
-    mean1 = icfm_instance._mean(x0, y, t1)
-    assert mean1.shape == x0.shape
-    assert torch.allclose(mean1, y, atol=1e-3)  # Check if mean is close to y when t=1
+    mean1 = icfm_instance._mean(x, y, t1)
+    assert mean1.shape == x.shape
+    assert torch.allclose(mean1, x, atol=1e-3)  # Check if mean is close to y when t=1
 
     # Test t = 0
     t0 = torch.zeros(batch_size)
-    mean0 = icfm_instance._mean(x0, y, t0)
-    assert mean0.shape == x0.shape
-    assert torch.allclose(mean0, x0, atol=1e-3)  # Check if mean is close to x0 when t=0
+    mean0 = icfm_instance._mean(x, y, t0)
+    assert mean0.shape == x.shape
+    assert torch.allclose(mean0, y, atol=1e-3)  # Check if mean is close to x0 when t=0
 
     # Test intermediate t
     t_intermediate = 0.5 * torch.ones(batch_size)
-    mean_intermediate = icfm_instance._mean(x0, y, t_intermediate)
+    mean_intermediate = icfm_instance._mean(x, y, t_intermediate)
 
-    assert mean_intermediate.shape == x0.shape
+    assert mean_intermediate.shape == x.shape
     assert not torch.allclose(
         mean_intermediate, y, atol=1e-3
     )  # Should not be close to y
     assert not torch.allclose(
-        mean_intermediate, x0, atol=1e-3
+        mean_intermediate, x, atol=1e-3
     )  # Should not be close to x0
     # Should be in the middle of x0 and y
-    assert torch.allclose(mean_intermediate, 0.5 * (x0 + y), atol=1e-3)
+    assert torch.allclose(mean_intermediate, 0.5 * (x + y), atol=1e-3)
 
 
 def test_std(icfm_instance):
@@ -82,7 +82,6 @@ def test_std(icfm_instance):
     assert std.shape == t.shape
     # Check that sigma is computed as expected and that padding works
     sigma_t = icfm_instance.cfm.compute_sigma_t(1 - t)
-    sigma_t = pad_t_like_x(torch.tensor([sigma_t], device=t.device), t)
     assert torch.all(std == sigma_t)
 
 
