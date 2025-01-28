@@ -399,6 +399,12 @@ class ScoreModel(pl.LightningModule):
             https://arxiv.org/abs/2409.10753
 
         """
+        print(x_t.dtype)
+        print(y.dtype)
+        print(t.dtype)
+
+        if t.dtype == torch.complex64:
+            breakpoint()
 
         # In [3], we use new code with backbone='ncsnpp_v2':
         if self.backbone == "ncsnpp_v2":
@@ -421,6 +427,11 @@ class ScoreModel(pl.LightningModule):
                 return score
             elif self.loss_type == "data_prediction":
                 x_hat = self._c_skip(t) * x_t + self._c_out(t) * F
+                return x_hat
+            elif self.loss_type == "flow_matching":
+                x_hat = F
+                print(x_t)
+                print(x_hat)
                 return x_hat
 
         # In [1] and [2], we use the old code:
@@ -539,6 +550,15 @@ class ScoreModel(pl.LightningModule):
             sde, self, y=y, sampler_type=sampler_type, **kwargs
         )
 
+    def get_cfm_sampler(self, sde, y, sampler_type="ode", N=None, **kwargs):
+        N = sde.N if N is None else N
+        sde = self.sde.copy()
+        sde.N = N if N is not None else sde.N
+
+        return sampling.get_cfm_sampler(
+            sde, self, y, sampler_type=sampler_type, **kwargs
+        )
+
     def train_dataloader(self):
         return self.data_module.train_dataloader()
 
@@ -612,6 +632,8 @@ class ScoreModel(pl.LightningModule):
             sampler = self.get_sb_sampler(
                 sde=self.sde, y=Y.cuda(), sampler_type=self.sde.sampler_type
             )
+        elif self.sde.__class__.__name__ == "ICFM":
+            sampler = self.get_cfm_sampler(self.sde, Y.cuda(), N=N, **kwargs)
         else:
             raise ValueError(
                 "Invalid SDE type for speech enhancement: {}".format(
