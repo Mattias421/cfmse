@@ -11,7 +11,7 @@ import numpy as np
 import torch
 
 from sgmse.util.registry import Registry
-from torchcfm.conditional_flow_matching import ConditionalFlowMatcher, pad_t_like_x
+from torchcfm.conditional_flow_matching import ConditionalFlowMatcher
 
 
 SDERegistry = Registry("SDE")
@@ -452,23 +452,17 @@ class ICFM(SDE):
     def T(self):
         return 1
 
-    def sde(self, x, y, t):
-        raise NotImplementedError("ICFM does require SDE")
-
-    def _mean(self, x0, y, t):
-        # linear interpolation where mu is y at t=1 and x0 at t=0, so we reverse t
-        return self.cfm.compute_mu_t(x0=x0, x1=y, t=1 - t)
-
-    def alpha(self, t):
-        raise NotImplementedError("ICFM does require alpha")
+    def _mean(self, x, y, t):
+        # linear interpolation where mu is y at t=1 and x0 at t=0
+        return self.cfm.compute_mu_t(x0=y, x1=x, t=t)
 
     def _std(self, t):
-        sigma_t = self.cfm.compute_sigma_t(1 - t)
-        sigma_t = pad_t_like_x(torch.tensor([sigma_t], device=t.device), t)
+        sigma_t = self.cfm.compute_sigma_t(t)
+        sigma_t = torch.full_like(t, sigma_t)
         return sigma_t
 
-    def marginal_prob(self, x0, y, t):
-        return self._mean(x0, y, t), self._std(t)
+    def marginal_prob(self, x, y, t):
+        return self._mean(x, y, t), self._std(t)
 
     def prior_sampling(self, shape, y):
         if shape != y.shape:
@@ -476,8 +470,11 @@ class ICFM(SDE):
                 f"Target shape {shape} does not match shape of y {y.shape}! Ignoring target shape."
             )
         std = self._std(torch.ones((y.shape[0],), device=y.device))
-        x_T = y + torch.randn_like(y) * std[:, None, None, None]
-        return x_T
+        x_0 = y + torch.randn_like(y) * std[:, None, None, None]
+        return x_0
 
-    def prior_logp(self, z):
-        raise NotImplementedError("prior_logp for OU SDE not yet implemented!")
+    def sde(self, *args):
+        raise NotImplementedError("sde is not used for cfm")
+
+    def prior_logp(self, *args):
+        raise NotImplementedError("prior_logp not implemented for cfm")

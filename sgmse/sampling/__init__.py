@@ -6,7 +6,7 @@ import torch
 
 from .predictors import Predictor, PredictorRegistry, ReverseDiffusionPredictor
 from .correctors import Corrector, CorrectorRegistry
-
+from torchdyn.core import NeuralODE
 
 __all__ = [
     "PredictorRegistry",
@@ -25,6 +25,16 @@ def to_flattened_numpy(x):
 def from_flattened_numpy(x, shape):
     """Form a torch tensor with the given `shape` from a flattened numpy array `x`."""
     return torch.from_numpy(x.reshape(shape))
+
+
+def to_flattened_tensor(x):
+    """Flatten a torch tensor `x` and convert it to numpy."""
+    return x.detach().reshape((-1,))
+
+
+def from_flattened_tensor(x, shape):
+    """Form a torch tensor with the given `shape` from a flattened numpy array `x`."""
+    return x.reshape(shape)
 
 
 def get_pc_sampler(
@@ -230,7 +240,6 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
                 time_prev = time
                 alpha_prev = alpha_t
                 sigma_prev = sigma_t
-                sigma_bar_prev = sigma_bart
 
             return xt, n_steps
 
@@ -308,3 +317,86 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
         return ode_sampler
     else:
         raise ValueError("Invalid type. Choose 'ode' or 'sde'.")
+
+
+def get_cfm_sampler(
+    sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", device="cuda", **kwargs
+):
+    class torch_wrapper(torch.nn.Module):
+        """Wraps model to torchdyn compatible format."""
+
+        def __init__(self, model):
+            super().__init__()
+            self.model = model
+
+        def forward(self, t, x, *args, **kwargs):
+            vec_t = torch.ones(y.shape[0], device=x.device, dtype=torch.float32) * t
+            vec_t = vec_t.to(torch.float32)
+            model_out = self.model(x, y, vec_t)
+            return model_out
+
+    @torch.no_grad
+    def cfm_sampler():
+        torch.autograd.set_detect_anomaly(True)
+        x_0 = sde.prior_sampling(y.shape, y).to(device)
+        node = NeuralODE(
+            torch_wrapper(model),
+            solver="dopri5",
+            sensitivity="adjoint",
+            atol=1e-5,
+            rtol=1e-5,
+        )
+
+        traj = node.trajectory(
+            x_0,
+            t_span=torch.linspace(eps, 1, n_steps),
+        )
+        return traj[-1].reshape(y.shape), traj.shape[0]
+
+    return cfm_sampler
+
+
+def get_cfm_sampler_numpy(
+    sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", device="cuda", **kwargs
+):
+    class torch_wrapper(torch.nn.Module):
+        """Wraps model to torchdyn compatible format."""
+
+        def __init__(self, model):
+            super().__init__()
+            self.model = model
+
+        def forward(self, t, x, *args, **kwargs):
+            print(t)
+            vec_t = torch.ones(y.shape[0], device=x.device, dtype=torch.float32) * t
+            vec_t = vec_t.to(torch.float32)
+            # t = torch.full((x.shape[0],), t.item(), device=device, dtype=t.dtype)
+            model_out = self.model(x, y, vec_t)
+            return model_out
+            # return to_flattened_tensor(model_out)
+
+    @torch.no_grad
+    def cfm_sampler():
+        x_0 = sde.prior_sampling(y.shape, y).to(device)
+
+        # Black-box ODE solver for the probability flow ODE
+        solution = integrate.solve_ivp(
+            torch_wrapper(model),
+            (eps, 1),
+            to_flattened_numpy(x_0),
+            rtol=1e-5,
+            atol=1e-5,
+            method="RK45",
+            **kwargs,
+        )
+        nfe = solution.nfev
+        x = (
+            torch.tensor(solution.y[:, -1])
+            .reshape(y.shape)
+            .to(device)
+            .type(torch.complex64)
+        )
+
+        return x, nfe
+
+    return cfm_sampler

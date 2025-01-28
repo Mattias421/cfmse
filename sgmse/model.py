@@ -542,6 +542,15 @@ class ScoreModel(pl.LightningModule):
             sde, self, y=y, sampler_type=sampler_type, **kwargs
         )
 
+    def get_cfm_sampler(self, sde, y, sampler_type="ode", N=None, **kwargs):
+        N = sde.N if N is None else N
+        sde = self.sde.copy()
+        sde.N = N if N is not None else sde.N
+
+        return sampling.get_cfm_sampler(
+            sde, self, y, sampler_type=sampler_type, n_steps=N, **kwargs
+        )
+
     def train_dataloader(self):
         return self.data_module.train_dataloader()
 
@@ -616,23 +625,7 @@ class ScoreModel(pl.LightningModule):
                 sde=self.sde, y=Y.cuda(), sampler_type=self.sde.sampler_type
             )
         elif self.sde.__class__.__name__ == "ICFM":
-            if self.sde.sampler_type == "pc":
-                sampler = self.get_pc_sampler(
-                    predictor,
-                    corrector,
-                    Y.cuda(),
-                    N=N,
-                    corrector_steps=corrector_steps,
-                    snr=snr,
-                    intermediate=False,
-                    **kwargs,
-                )
-            elif self.sde.sampler_type == "ode":
-                sampler = self.get_ode_sampler(Y.cuda(), N=N, **kwargs)
-            else:
-                raise ValueError(
-                    "Invalid sampler type for SGMSE sampling: {}".format(sampler_type)
-                )
+            sampler = self.get_cfm_sampler(self.sde, Y.cuda(), N=N, **kwargs)
         else:
             raise ValueError(
                 "Invalid SDE type for speech enhancement: {}".format(
