@@ -399,12 +399,6 @@ class ScoreModel(pl.LightningModule):
             https://arxiv.org/abs/2409.10753
 
         """
-        print(x_t.dtype)
-        print(y.dtype)
-        print(t.dtype)
-
-        if t.dtype == torch.complex64:
-            breakpoint()
 
         # In [3], we use new code with backbone='ncsnpp_v2':
         if self.backbone == "ncsnpp_v2":
@@ -430,8 +424,6 @@ class ScoreModel(pl.LightningModule):
                 return x_hat
             elif self.loss_type == "flow_matching":
                 x_hat = F
-                print(x_t)
-                print(x_hat)
                 return x_hat
 
         # In [1] and [2], we use the old code:
@@ -556,7 +548,7 @@ class ScoreModel(pl.LightningModule):
         sde.N = N if N is not None else sde.N
 
         return sampling.get_cfm_sampler(
-            sde, self, y, sampler_type=sampler_type, **kwargs
+            sde, self, y, sampler_type=sampler_type, n_steps=N, **kwargs
         )
 
     def train_dataloader(self):

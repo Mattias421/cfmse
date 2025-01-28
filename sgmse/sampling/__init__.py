@@ -330,37 +330,10 @@ def get_cfm_sampler(
             self.model = model
 
         def forward(self, t, x, *args, **kwargs):
-            print(t)
-            x = from_flattened_tensor(x, y.shape).to(device).type(torch.complex64)
             vec_t = torch.ones(y.shape[0], device=x.device, dtype=torch.float32) * t
             vec_t = vec_t.to(torch.float32)
-            # t = torch.full((x.shape[0],), t.item(), device=device, dtype=t.dtype)
             model_out = self.model(x, y, vec_t)
-            return to_flattened_tensor(model_out)
-
-    # @torch.no_grad
-    # def cfm_sampler():
-    #     x_0 = sde.prior_sampling(y.shape, y).to(device)
-    #
-    #     # Black-box ODE solver for the probability flow ODE
-    #     solution = integrate.solve_ivp(
-    #             torch_wrapper(model),
-    #         (eps, 1),
-    #         to_flattened_numpy(x_0),
-    #         rtol=1e-5,
-    #         atol=1e-5,
-    #         method="RK45",
-    #         **kwargs,
-    #     )
-    #     nfe = solution.nfev
-    #     x = (
-    #         torch.tensor(solution.y[:, -1])
-    #         .reshape(y.shape)
-    #         .to(device)
-    #         .type(torch.complex64)
-    #     )
-    #
-    #     return x, nfe
+            return model_out
 
     @torch.no_grad
     def cfm_sampler():
@@ -375,9 +348,55 @@ def get_cfm_sampler(
         )
 
         traj = node.trajectory(
-            to_flattened_tensor(x_0),
+            x_0,
             t_span=torch.linspace(eps, 1, n_steps),
         )
         return traj[-1].reshape(y.shape), traj.shape[0]
+
+    return cfm_sampler
+
+
+def get_cfm_sampler_numpy(
+    sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", device="cuda", **kwargs
+):
+    class torch_wrapper(torch.nn.Module):
+        """Wraps model to torchdyn compatible format."""
+
+        def __init__(self, model):
+            super().__init__()
+            self.model = model
+
+        def forward(self, t, x, *args, **kwargs):
+            print(t)
+            vec_t = torch.ones(y.shape[0], device=x.device, dtype=torch.float32) * t
+            vec_t = vec_t.to(torch.float32)
+            # t = torch.full((x.shape[0],), t.item(), device=device, dtype=t.dtype)
+            model_out = self.model(x, y, vec_t)
+            return model_out
+            # return to_flattened_tensor(model_out)
+
+    @torch.no_grad
+    def cfm_sampler():
+        x_0 = sde.prior_sampling(y.shape, y).to(device)
+
+        # Black-box ODE solver for the probability flow ODE
+        solution = integrate.solve_ivp(
+            torch_wrapper(model),
+            (eps, 1),
+            to_flattened_numpy(x_0),
+            rtol=1e-5,
+            atol=1e-5,
+            method="RK45",
+            **kwargs,
+        )
+        nfe = solution.nfev
+        x = (
+            torch.tensor(solution.y[:, -1])
+            .reshape(y.shape)
+            .to(device)
+            .type(torch.complex64)
+        )
+
+        return x, nfe
 
     return cfm_sampler
