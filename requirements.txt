@@ -25,3 +25,5 @@ torchinfo
 torchsde 
 tqdm 
 wandb
+# new
+torchcfm

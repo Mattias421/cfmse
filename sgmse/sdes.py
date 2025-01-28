@@ -11,6 +11,7 @@ import numpy as np
 import torch
 
 from sgmse.util.registry import Registry
+from torchcfm.conditional_flow_matching import ConditionalFlowMatcher, pad_t_like_x
 
 
 SDERegistry = Registry("SDE")
@@ -391,3 +392,92 @@ class SBVESDE(SDE):
 
     def prior_logp(self, z):
         raise NotImplementedError("prior_logp for SBVE SDE not yet implemented!")
+
+
+@SDERegistry.register("icfm")
+class ICFM(SDE):
+    @staticmethod
+    def add_argparse_args(parser):
+        parser.add_argument(
+            "--sigma",
+            type=float,
+            default=0.05,
+            help="The minimum sigma to use. 0.05 by default.",
+        )
+        parser.add_argument(
+            "--N",
+            type=int,
+            default=30,
+            help="The number of timesteps in the SDE discretization. 30 by default",
+        )
+        parser.add_argument(
+            "--sampler_type",
+            type=str,
+            default="ode",
+            help="Type of sampler to use. 'ode' by default.",
+        )
+        return parser
+
+    def __init__(self, sigma, N=30, sampler_type="pc", **ignored_kwargs):
+        """Construct an indepentent flow matcher.
+
+        Note that the "steady-state mean" `y` is not provided at construction, but must rather be given as an argument
+        to the methods which require it (e.g., `sde` or `marginal_prob`).
+
+        dx = -theta (y-x) dt + sigma(t) dw
+
+        with
+
+        sigma(t) = sigma_min (sigma_max/sigma_min)^t * sqrt(2 log(sigma_max/sigma_min))
+
+        Args:
+            theta: stiffness parameter.
+            sigma_min: smallest sigma.
+            sigma_max: largest sigma.
+            N: number of discretization steps
+        """
+        super().__init__(N)
+        self.cfm = ConditionalFlowMatcher(sigma=sigma)
+        self.N = N
+        self.sampler_type = sampler_type
+
+    def copy(self):
+        return ICFM(
+            self.sigma,
+            N=self.N,
+            sampler_type=self.sampler_type,
+        )
+
+    @property
+    def T(self):
+        return 1
+
+    def sde(self, x, y, t):
+        raise NotImplementedError("ICFM does require SDE")
+
+    def _mean(self, x0, y, t):
+        # linear interpolation where mu is y at t=1 and x0 at t=0, so we reverse t
+        return self.cfm.compute_mu_t(x0=x0, x1=y, t=1 - t)
+
+    def alpha(self, t):
+        raise NotImplementedError("ICFM does require alpha")
+
+    def _std(self, t):
+        sigma_t = self.cfm.compute_sigma_t(1 - t)
+        sigma_t = pad_t_like_x(torch.tensor([sigma_t], device=t.device), t)
+        return sigma_t
+
+    def marginal_prob(self, x0, y, t):
+        return self._mean(x0, y, t), self._std(t)
+
+    def prior_sampling(self, shape, y):
+        if shape != y.shape:
+            warnings.warn(
+                f"Target shape {shape} does not match shape of y {y.shape}! Ignoring target shape."
+            )
+        std = self._std(torch.ones((y.shape[0],), device=y.device))
+        x_T = y + torch.randn_like(y) * std[:, None, None, None]
+        return x_T
+
+    def prior_logp(self, z):
+        raise NotImplementedError("prior_logp for OU SDE not yet implemented!")

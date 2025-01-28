@@ -10,11 +10,10 @@ from librosa import resample
 
 # Set CUDA architecture list
 from sgmse.util.other import set_torch_cuda_arch_list
-
-set_torch_cuda_arch_list()
-
 from sgmse.model import ScoreModel
 from sgmse.util.other import pad_spec
+
+set_torch_cuda_arch_list()
 
 
 if __name__ == "__main__":

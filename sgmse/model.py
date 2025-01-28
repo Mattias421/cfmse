@@ -180,7 +180,7 @@ class ScoreModel(pl.LightningModule):
             mode
         )  # call the standard `train` method with the given mode
         if not self._error_loading_ema:
-            if mode == False and not no_ema:
+            if not mode and not no_ema:
                 # eval
                 self.ema.store(self.dnn.parameters())  # store current params in EMA
                 self.ema.copy_to(
@@ -197,7 +197,7 @@ class ScoreModel(pl.LightningModule):
     def eval(self, no_ema=False):
         return self.train(False, no_ema=no_ema)
 
-    def _loss(self, forward_out, x_t, z, t, mean, x):
+    def _loss(self, forward_out, x_t, z, t, mean, x, y):
         """
         Different loss functions can be used to train the score model, see the paper:
 
@@ -276,6 +276,11 @@ class ScoreModel(pl.LightningModule):
                 )
             else:
                 loss = losses_tf + self.l1_weight * losses_l1
+
+        elif self.loss_type == "flow_matching":
+            vt = forward_out
+            ut = self.sde.cfm.compute_conditional_flow(y, x, t, x_t)
+            loss = torch.mean(torch.abs(vt - ut) ** 2)
         else:
             raise ValueError("Invalid loss type: {}".format(self.loss_type))
 
@@ -292,7 +297,7 @@ class ScoreModel(pl.LightningModule):
         sigma = std[:, None, None, None]
         x_t = mean + sigma * z
         forward_out = self(x_t, y, t)
-        loss = self._loss(forward_out, x_t, z, t, mean, x)
+        loss = self._loss(forward_out, x_t, z, t, mean, x, y)
         return loss
 
     def training_step(self, batch, batch_idx):
