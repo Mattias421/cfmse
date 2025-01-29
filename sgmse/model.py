@@ -281,6 +281,36 @@ class ScoreModel(pl.LightningModule):
             vt = forward_out
             ut = self.sde.cfm.compute_conditional_flow(y, x, t, x_t)
             loss = torch.mean(torch.abs(vt - ut) ** 2)
+
+            B, C, F, T = x.shape
+
+            # losses in the time-frequency domain (tf)
+            losses_tf = (1 / (F * T)) * torch.square(torch.abs(vt - ut))
+            losses_tf = torch.mean(
+                0.5 * torch.sum(losses_tf.reshape(losses_tf.shape[0], -1), dim=-1)
+            )
+
+            # losses in the time domain (td)
+            target_len = (self.data_module.num_frames - 1) * self.data_module.hop_length
+            vt_td = self.to_audio(vt.squeeze(), target_len)
+            ut_td = self.to_audio(ut.squeeze(), target_len)
+            losses_l1 = (1 / target_len) * torch.abs(vt_td - ut_td)
+            losses_l1 = torch.mean(
+                0.5 * torch.sum(losses_l1.reshape(losses_l1.shape[0], -1), dim=-1)
+            )
+
+            # losses using PESQ
+            if self.pesq_weight > 0.0:
+                losses_pesq = self.pesq_loss(ut_td, vt_td)
+                losses_pesq = torch.mean(losses_pesq)
+                # combine the losses
+                loss = (
+                    losses_tf
+                    + self.l1_weight * losses_l1
+                    + self.pesq_weight * losses_pesq
+                )
+            else:
+                loss = losses_tf + self.l1_weight * losses_l1
         else:
             raise ValueError("Invalid loss type: {}".format(self.loss_type))
 
@@ -625,7 +655,9 @@ class ScoreModel(pl.LightningModule):
                 sde=self.sde, y=Y.cuda(), sampler_type=self.sde.sampler_type
             )
         elif self.sde.__class__.__name__ == "ICFM":
-            sampler = self.get_cfm_sampler(self.sde, Y.cuda(), N=N, **kwargs)
+            sampler = self.get_cfm_sampler(
+                self.sde, Y.cuda(), N=N, sampler_type=self.sde.sampler_type, **kwargs
+            )
         else:
             raise ValueError(
                 "Invalid SDE type for speech enhancement: {}".format(

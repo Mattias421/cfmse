@@ -21,6 +21,6 @@ ckpt_metric=pesq
 export WANDB_NAME=icfm_default
 python train.py --base_dir $DATA/VB+DMD --backbone ncsnpp_v2 --sde icfm --loss_type flow_matching --wandb_name $WANDB_NAME
 
-python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/${WANDB_NAME}/enhanced_${ckpt_metric} --ckpt logs/${WANDB_NAME}/epoch=*-${ckpt_metric}=*.ckpt
+python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/*${WANDB_NAME}/enhanced_${ckpt_metric} --ckpt logs/*${WANDB_NAME}/epoch=*-${ckpt_metric}=*.ckpt
 
-python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/${WANDB_NAME}/enhanced_${ckpt_metric}
+python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/*${WANDB_NAME}/enhanced_${ckpt_metric}
