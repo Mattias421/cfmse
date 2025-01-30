@@ -572,13 +572,21 @@ class ScoreModel(pl.LightningModule):
             sde, self, y=y, sampler_type=sampler_type, **kwargs
         )
 
-    def get_cfm_sampler(self, sde, y, sampler_type="ode", N=None, **kwargs):
+    def get_cfm_sampler(
+        self, sde, y, sampler_type="ode", N=None, loss="flow_matching", **kwargs
+    ):
         N = sde.N if N is None else N
         sde = self.sde.copy()
         sde.N = N if N is not None else sde.N
 
         return sampling.get_cfm_sampler(
-            sde, self, y, sampler_type=sampler_type, n_steps=N, **kwargs
+            sde,
+            self,
+            y,
+            sampler_type=sampler_type,
+            n_steps=N,
+            loss="flow_matching",
+            **kwargs,
         )
 
     def train_dataloader(self):
@@ -656,7 +664,12 @@ class ScoreModel(pl.LightningModule):
             )
         elif self.sde.__class__.__name__ == "ICFM":
             sampler = self.get_cfm_sampler(
-                self.sde, Y.cuda(), N=N, sampler_type=self.sde.sampler_type, **kwargs
+                self.sde,
+                Y.cuda(),
+                N=N,
+                sampler_type=self.sde.sampler_type,
+                loss=self.loss_type,
+                **kwargs,
             )
         else:
             raise ValueError(

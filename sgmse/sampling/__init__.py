@@ -320,8 +320,29 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
 
 
 def get_cfm_sampler(
-    sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", device="cuda", **kwargs
+    sde,
+    model,
+    y,
+    eps=1e-4,
+    n_steps=50,
+    sampler_type="ode",
+    device="cuda",
+    loss="flow_matching",
+    **kwargs,
 ):
+    # TODO verify this is correct
+
+    if loss == "flow_matching":
+
+        def v(x, y, vec_t):
+            return model(x, y, vec_t)
+    elif loss == "data_prediction":
+
+        def v(x, y, vec_t):
+            return model(x, y, vec_t) - y
+    else:
+        raise NotImplementedError(f"{loss} loss not supported for cfm_sampler")
+
     class torch_wrapper(torch.nn.Module):
         """Wraps model to torchdyn compatible format."""
 
@@ -330,18 +351,16 @@ def get_cfm_sampler(
             self.model = model
 
         def forward(self, t, x, *args, **kwargs):
-            print(x)
             vec_t = torch.ones(y.shape[0], device=x.device, dtype=torch.float32) * t
             vec_t = vec_t.to(torch.float32)
             model_out = self.model(x, y, vec_t)
-            print(model_out)
             return model_out
 
     @torch.no_grad
     def cfm_sampler_torchdyn():
         x_0 = sde.prior_sampling(y.shape, y).to(device)
         node = NeuralODE(
-            torch_wrapper(model),
+            torch_wrapper(v),
             solver="dopri5",
             sensitivity="adjoint",
             atol=1e-5,
@@ -357,7 +376,7 @@ def get_cfm_sampler(
     def ode_func_np(t, x):
         x = from_flattened_numpy(x, y.shape).to(device).type(torch.complex64)
         vec_t = torch.ones(y.shape[0], device=x.device) * t
-        model_out = model(x, y, vec_t)
+        model_out = v(x, y, vec_t)
         return to_flattened_numpy(model_out)
 
     @torch.no_grad
