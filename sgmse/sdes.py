@@ -313,9 +313,12 @@ class SBVESDE(SDE):
             help="Small constant to avoid numerical instability. 1e-8 by default.",
         )
         parser.add_argument("--sampler_type", type=str, default="ode")
+        parser.add_argument("--mean_type", type=str, default="sb")
         return parser
 
-    def __init__(self, k, c, N=50, eps=1e-8, sampler_type="ode", **ignored_kwargs):
+    def __init__(
+        self, k, c, N=50, eps=1e-8, sampler_type="ode", mean_type="sb", **ignored_kwargs
+    ):
         """Construct a Schrodinger Bridge with Variance Exploding SDE.
 
         As described in Jukić et al., „Schrödinger Bridge for Generative Speech Enhancement“, 2024.
@@ -331,9 +334,10 @@ class SBVESDE(SDE):
         self.N = N
         self.eps = eps
         self.sampler_type = sampler_type
+        self.mean_type = mean_type
 
     def copy(self):
-        return SBVESDE(self.k, self.c, N=self.N)
+        return SBVESDE(self.k, self.c, N=self.N, mean_type=self.mean_type)
 
     @property
     def T(self):
@@ -361,15 +365,24 @@ class SBVESDE(SDE):
         return sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart
 
     def _mean(self, x0, y, t):
-        sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
-            self._sigmas_alphas(t)
-        )
+        if self.mean_type == "sb":
+            sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
+                self._sigmas_alphas(t)
+            )
 
-        w_xt = alpha_t * sigma_bart**2 / (sigma_T**2 + self.eps)  # below Eq. (11)
-        w_yt = alpha_bart * sigma_t**2 / (sigma_T**2 + self.eps)  # below Eq. (11)
+            w_xt = alpha_t * sigma_bart**2 / (sigma_T**2 + self.eps)  # below Eq. (11)
+            w_yt = alpha_bart * sigma_t**2 / (sigma_T**2 + self.eps)  # below Eq. (11)
 
-        mu = w_xt[:, None, None, None] * x0 + w_yt[:, None, None, None] * y  # Eq. (11)
-        return mu
+            mu = (
+                w_xt[:, None, None, None] * x0 + w_yt[:, None, None, None] * y
+            )  # Eq. (11)
+            return mu
+        elif self.mean_type == "icfm":
+            # y at t=1 and x0 at t=0
+            mu = t[:, None, None, None] * y + (1 - t[:, None, None, None]) * x0
+            return mu
+        else:
+            raise NotImplementedError(f"mean_type {self.mean_type} not implemented")
 
     def _std(self, t):
         sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
