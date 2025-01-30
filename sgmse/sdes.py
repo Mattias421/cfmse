@@ -418,7 +418,7 @@ class ICFM(SDE):
         )
         return parser
 
-    def __init__(self, sigma, N=30, sampler_type="pc", **ignored_kwargs):
+    def __init__(self, sigma, N=30, sampler_type="ode", **ignored_kwargs):
         """Construct an indepentent flow matcher.
 
         Note that the "steady-state mean" `y` is not provided at construction, but must rather be given as an argument
@@ -453,7 +453,6 @@ class ICFM(SDE):
         return 1
 
     def _mean(self, x, y, t):
-        # linear interpolation where mu is y at t=1 and x0 at t=0
         return self.cfm.compute_mu_t(x0=y, x1=x, t=t)
 
     def _std(self, t):

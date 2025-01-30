@@ -9,14 +9,13 @@ from os.path import join
 
 # Set CUDA architecture list and float32 matmul precision high
 from sgmse.util.other import set_torch_cuda_arch_list
-
-set_torch_cuda_arch_list()
-torch.set_float32_matmul_precision("high")
-
 from sgmse.backbones.shared import BackboneRegistry
 from sgmse.data_module import SpecsDataModule
 from sgmse.sdes import SDERegistry
 from sgmse.model import ScoreModel
+
+set_torch_cuda_arch_list()
+torch.set_float32_matmul_precision("high")
 
 
 def get_argparse_groups(parser):
@@ -126,7 +125,7 @@ if __name__ == "__main__":
         logger.experiment.log_code(".")
 
     # Set up callbacks for logger
-    if logger != None:
+    if logger is not None:
         callbacks = [
             ModelCheckpoint(
                 dirpath=join(args.log_dir, str(logger.version)),
@@ -164,11 +163,11 @@ if __name__ == "__main__":
     # Initialize the Trainer and the DataModule
     trainer = pl.Trainer(
         **vars(arg_groups["Trainer"]),
-        strategy="ddp",
         logger=logger,
         log_every_n_steps=10,
         num_sanity_val_steps=0,
         callbacks=callbacks,
+        strategy="ddp_find_unused_parameters_false",
     )
 
     # Train model

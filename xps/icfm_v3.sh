@@ -20,4 +20,4 @@ ckpt_metric=pesq
 
 export WANDB_NOTES="copy sb loss but replace x and x_hat with vt and ut to enable best icfm model for se, use data_prediction loss then reformulate x_1 - x_0 as F(x_t) - y"
 export WANDB_NAME=icfm_v3
-python train.py --base_dir $DATA/VB+DMD --backbone ncsnpp_v2 --sde icfm --loss_type data_prediction --wandb_name $WANDB_NAME
+python train.py --base_dir $DATA/VB+DMD --max_epochs 300 --backbone ncsnpp_v2 --sde icfm --loss_type data_prediction --wandb_name $WANDB_NAME --log_dir ./logs/${WANDB_NAME}
