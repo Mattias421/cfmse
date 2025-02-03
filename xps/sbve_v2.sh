@@ -16,11 +16,7 @@ module load GCCcore/12.3.0
 
 source activate cfmse
 
-ckpt_metric=pesq
 
 export WANDB_NAME=sbve_icfm_mu_nopesq
 python train.py --base_dir $DATA/VB+DMD --backbone ncsnpp_v2 --max_epochs 300 --sde sbve --loss_type data_prediction --wandb_name $WANDB_NAME --log_dir ./logs/$WANDB_NAME
 
-python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/${WANDB_NAME}/*/enhanced_${ckpt_metric} --ckpt logs/${WANDB_NAME}/*/epoch=*-${ckpt_metric}=*.ckpt
-
-python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/${WANDB_NAME}/*/enhanced_${ckpt_metric}
