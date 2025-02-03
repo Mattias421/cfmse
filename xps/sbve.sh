@@ -18,8 +18,8 @@ source activate cfmse
 
 ckpt_metric=pesq
 
-export WANDB_NAME=sbve_default
-python train.py --base_dir $DATA/VB+DMD/ --backbone ncsnpp_v2 --sde sbve --loss_type data_prediction --pesq_weight 5e-4
+export WANDB_NAME=sbve_no_pesq
+python train.py --base_dir $DATA/VB+DMD/ --backbone ncsnpp_v2 --sde sbve --loss_type data_prediction --max_epochs 300
 
 python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/${WANDB_NAME}/enhanced_${ckpt_metric} --ckpt logs/${WANDB_NAME}/epoch=*-${ckpt_metric}=*.ckpt
 

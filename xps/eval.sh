@@ -16,6 +16,6 @@ module load GCCcore/12.3.0
 
 source activate cfmse
 
-#python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/${1}/enhanced --ckpt logs/${1}/epoch=*-pesq=*.ckpt
+python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${1}/enhanced --ckpt ${1}/epoch=*pesq*.ckpt
 
-python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/${1}/enhanced
+python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${1}/enhanced
