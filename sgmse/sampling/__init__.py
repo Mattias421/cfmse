@@ -376,6 +376,7 @@ def get_cfm_sampler(
     def ode_func_np(t, x):
         x = from_flattened_numpy(x, y.shape).to(device).type(torch.complex64)
         vec_t = torch.ones(y.shape[0], device=x.device) * t
+        breakpoint()
         model_out = v(x, y, vec_t)
         return to_flattened_numpy(model_out)
 

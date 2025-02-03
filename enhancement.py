@@ -123,8 +123,15 @@ if __name__ == "__main__":
             else:
                 raise ValueError(f"Sampler type {args.sampler_type} not supported")
         elif model.sde.__class__.__name__ == "SBVESDE":
+            model = model.to(args.device)
             sampler_type = "ode" if args.sampler_type == "pc" else args.sampler_type
             sampler = model.get_sb_sampler(
+                sde=model.sde, y=Y.cuda(), sampler_type=sampler_type
+            )
+        elif model.sde.__class__.__name__ == "ICFM":
+            model = model.to(args.device)
+            sampler_type = "ode" if args.sampler_type == "pc" else args.sampler_type
+            sampler = model.get_cfm_sampler(
                 sde=model.sde, y=Y.cuda(), sampler_type=sampler_type
             )
         else:
