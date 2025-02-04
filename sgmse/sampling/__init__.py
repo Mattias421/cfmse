@@ -6,7 +6,6 @@ import torch
 
 from .predictors import Predictor, PredictorRegistry, ReverseDiffusionPredictor
 from .correctors import Corrector, CorrectorRegistry
-from torchdyn.core import NeuralODE
 
 __all__ = [
     "PredictorRegistry",
@@ -312,7 +311,7 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
             return xt, n_steps
 
     def icfm_ode_sampler():
-        """The SB-ODE sampler function."""
+        """The SB-ICFMODE sampler function."""
         with torch.no_grad():
             xt = y
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
@@ -335,20 +334,8 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
                 # Run DNN
                 current_estimate = model(xt, y, time)
 
-                # View as [B, C, D, T]
-                weight_prev = 1
-                weight_estimate = 1
-                weight_prior_mean = -1
-                weight_prev = weight_prev[:, None, None, None]
-                weight_estimate = weight_estimate[:, None, None, None]
-                weight_prior_mean = weight_prior_mean[:, None, None, None]
-
                 # Update state: weighted sum of previous state, current estimate and prior
-                xt = (
-                    weight_prev * xt
-                    + weight_estimate * current_estimate
-                    + weight_prior_mean * y
-                )
+                xt = xt + (current_estimate - y) * 1 / n_steps
 
                 # Save previous values
                 time_prev = time
@@ -373,84 +360,38 @@ def get_cfm_sampler(
     n_steps=50,
     sampler_type="ode",
     device="cuda",
-    loss="flow_matching",
     **kwargs,
 ):
-    # TODO verify this is correct
+    def icfm_ode_sampler():
+        """The ICFMODE sampler function."""
+        with torch.no_grad():
+            xt = y
+            time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
 
-    if loss == "flow_matching":
+            # Initial values
+            time_prev = time_steps[0] * torch.ones(xt.shape[0], device=xt.device)
+            sigma_prev, sigma_T, sigma_bar_prev, alpha_prev, alpha_T, alpha_bar_prev = (
+                sde._sigmas_alphas(time_prev)
+            )
 
-        def v(x, y, vec_t):
-            return model(x, y, vec_t)
-    elif loss == "data_prediction":
+            for t in time_steps[1:]:
+                # Prepare time steps for the whole batch
+                time = t * torch.ones(xt.shape[0], device=xt.device)
 
-        def v(x, y, vec_t):
-            return model(x, y, vec_t) - y
-    else:
-        raise NotImplementedError(f"{loss} loss not supported for cfm_sampler")
+                # Get noise schedule for current time
+                sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
+                    sde._sigmas_alphas(time)
+                )
 
-    class torch_wrapper(torch.nn.Module):
-        """Wraps model to torchdyn compatible format."""
+                # Run DNN
+                current_estimate = model(xt, y, time)
 
-        def __init__(self, model):
-            super().__init__()
-            self.model = model
+                # Update state: weighted sum of previous state, current estimate and prior
+                xt = xt + (current_estimate - y) * 1 / n_steps
 
-        def forward(self, t, x, *args, **kwargs):
-            vec_t = torch.ones(y.shape[0], device=x.device, dtype=torch.float32) * t
-            vec_t = vec_t.to(torch.float32)
-            model_out = self.model(x, y, vec_t)
-            return model_out
+                # Save previous values
+                time_prev = time
 
-    @torch.no_grad
-    def cfm_sampler_torchdyn():
-        x_0 = sde.prior_sampling(y.shape, y).to(device)
-        node = NeuralODE(
-            torch_wrapper(v),
-            solver="dopri5",
-            sensitivity="adjoint",
-            atol=1e-5,
-            rtol=1e-5,
-        )
+            return xt, n_steps
 
-        traj = node.trajectory(
-            x_0,
-            t_span=torch.linspace(3e-2, 1 - 1e-8, n_steps, device=device),
-        )
-        return traj[-1].reshape(y.shape), traj.shape[0]
-
-    def ode_func_np(t, x):
-        x = from_flattened_numpy(x, y.shape).to(device).type(torch.complex64)
-        vec_t = torch.ones(y.shape[0], device=x.device) * t
-        breakpoint()
-        model_out = v(x, y, vec_t)
-        return to_flattened_numpy(model_out)
-
-    @torch.no_grad
-    def cfm_sampler_numpy():
-        x_0 = sde.prior_sampling(y.shape, y).to(device)
-
-        # Black-box ODE solver for the probability flow ODE
-        solution = integrate.solve_ivp(
-            ode_func_np,
-            (eps, 1),
-            to_flattened_numpy(x_0),
-            rtol=1e-5,
-            atol=1e-5,
-            method="RK45",
-            **kwargs,
-        )
-        nfe = solution.nfev
-        x = (
-            torch.tensor(solution.y[:, -1])
-            .reshape(y.shape)
-            .to(device)
-            .type(torch.complex64)
-        )
-
-        return x, nfe
-
-    if sampler_type == "ode_torchdyn":
-        return cfm_sampler_torchdyn
-    elif sampler_type == "ode":
-        return cfm_sampler_numpy
+    return icfm_ode_sampler
