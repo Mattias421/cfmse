@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --partition=gpu-h100,gpu
-#SBATCH --qos=gpu
+#SBATCH --partition=dcs-gpu
+#SBATCH --account=dcs-res
 #SBATCH --gres=gpu:1
 #SBATCH --time=80:00:00
 #SBATCH --nodes=1
@@ -11,9 +11,12 @@
 #SBATCH --output=logs/slurm/%x-%a.out
 #SBATCH --array=1-5
 
-module load Anaconda3/2022.05
-module load cuDNN/8.9.2.26-CUDA-12.1.1
-module load GCCcore/12.3.0
+# module load Anaconda3/2022.05
+# module load cuDNN/8.9.2.26-CUDA-12.1.1
+# module load GCCcore/12.3.0
+
+module load Anaconda3/5.3.0
+module load cuDNN/7.6.4.38-gcccuda-2019b
 
 source activate cfmse
 
