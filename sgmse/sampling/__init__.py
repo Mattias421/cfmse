@@ -311,12 +311,58 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
 
             return xt, n_steps
 
+    def icfm_ode_sampler():
+        """The SB-ODE sampler function."""
+        with torch.no_grad():
+            xt = y
+            time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
+
+            # Initial values
+            time_prev = time_steps[0] * torch.ones(xt.shape[0], device=xt.device)
+            sigma_prev, sigma_T, sigma_bar_prev, alpha_prev, alpha_T, alpha_bar_prev = (
+                sde._sigmas_alphas(time_prev)
+            )
+
+            for t in time_steps[1:]:
+                # Prepare time steps for the whole batch
+                time = t * torch.ones(xt.shape[0], device=xt.device)
+
+                # Get noise schedule for current time
+                sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
+                    sde._sigmas_alphas(time)
+                )
+
+                # Run DNN
+                current_estimate = model(xt, y, time)
+
+                # View as [B, C, D, T]
+                weight_prev = 1
+                weight_estimate = 1
+                weight_prior_mean = -1
+                weight_prev = weight_prev[:, None, None, None]
+                weight_estimate = weight_estimate[:, None, None, None]
+                weight_prior_mean = weight_prior_mean[:, None, None, None]
+
+                # Update state: weighted sum of previous state, current estimate and prior
+                xt = (
+                    weight_prev * xt
+                    + weight_estimate * current_estimate
+                    + weight_prior_mean * y
+                )
+
+                # Save previous values
+                time_prev = time
+
+            return xt, n_steps
+
     if sampler_type == "sde":
         return sde_sampler
     elif sampler_type == "ode":
         return ode_sampler
+    elif sampler_type == "icfm_ode":
+        return icfm_ode_sampler
     else:
-        raise ValueError("Invalid type. Choose 'ode' or 'sde'.")
+        raise ValueError("Invalid type. Choose 'ode' or 'sde', or 'icfm_ode'.")
 
 
 def get_cfm_sampler(
