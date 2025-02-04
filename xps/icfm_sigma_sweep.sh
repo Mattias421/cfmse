@@ -16,7 +16,8 @@
 # module load GCCcore/12.3.0
 
 module load Anaconda3/2019.07
-module load cuDNN/7.6.4.38-gcccuda-2019b
+module load cuDNN/8.0.4.30-CUDA-11.1.1
+
 
 source activate cfmse
 
