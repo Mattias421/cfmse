@@ -316,29 +316,15 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
             xt = y
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
 
-            # Initial values
-            time_prev = time_steps[0] * torch.ones(xt.shape[0], device=xt.device)
-            sigma_prev, sigma_T, sigma_bar_prev, alpha_prev, alpha_T, alpha_bar_prev = (
-                sde._sigmas_alphas(time_prev)
-            )
-
             for t in time_steps[1:]:
                 # Prepare time steps for the whole batch
                 time = t * torch.ones(xt.shape[0], device=xt.device)
-
-                # Get noise schedule for current time
-                sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
-                    sde._sigmas_alphas(time)
-                )
 
                 # Run DNN
                 current_estimate = model(xt, y, time)
 
                 # Update state: weighted sum of previous state, current estimate and prior
                 xt = xt + (current_estimate - y) * 1 / n_steps
-
-                # Save previous values
-                time_prev = time
 
             return xt, n_steps
 
@@ -368,29 +354,15 @@ def get_cfm_sampler(
             xt = y
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
 
-            # Initial values
-            time_prev = time_steps[0] * torch.ones(xt.shape[0], device=xt.device)
-            sigma_prev, sigma_T, sigma_bar_prev, alpha_prev, alpha_T, alpha_bar_prev = (
-                sde._sigmas_alphas(time_prev)
-            )
-
             for t in time_steps[1:]:
                 # Prepare time steps for the whole batch
                 time = t * torch.ones(xt.shape[0], device=xt.device)
-
-                # Get noise schedule for current time
-                sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
-                    sde._sigmas_alphas(time)
-                )
 
                 # Run DNN
                 current_estimate = model(xt, y, time)
 
                 # Update state: weighted sum of previous state, current estimate and prior
                 xt = xt + (current_estimate - y) * 1 / n_steps
-
-                # Save previous values
-                time_prev = time
 
             return xt, n_steps
 
