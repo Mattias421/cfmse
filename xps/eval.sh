@@ -9,6 +9,7 @@
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=32G
 #SBATCH --output=logs/slurm/%x.log
+#SBATCH --array=1-16
 
 module load Anaconda3/2022.05
 module load cuDNN/8.9.2.26-CUDA-12.1.1
@@ -16,6 +17,23 @@ module load GCCcore/12.3.0
 
 source activate cfmse
 
-python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${1}/enhanced --ckpt ${1}/epoch=*pesq*.ckpt
+array=("0n52exz7" "0p27oa57" "2hqvja7z" "2t2eudjv" "594lx3dt" "c6rvx7ck" "d4hg8fag" "exli5xss" "hcrt9hsh" "ieq9g288" "ljgevzv7" "pvnb0p90" "pxd0h4rx" "u7qjqp73" "xi9txau8" "y6md6luk")
 
-python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${1}/enhanced
+xp_code="${array[$SLURM_ARRAY_TASK_ID]}"
+
+root_dir=$EXP/cfmse/logs/sbve_ck_sweep/${xp_code}
+
+echo "evaluating ${root_dir}"
+
+python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${root_dir}/enhanced --ckpt ${root_dir}/epoch=*pesq*.ckpt
+
+python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${root_dir}/enhanced
+
+# WhiSQA calculation
+cd $EXP/WhiSQA/
+python get_score_batch.py --output_csv ${root_dir}/enhanced/_results_whisqa.csv --output_txt ${root_dir}/enhanced/_avg_results_whisqa.txt ${root_dir}/enhanced
+
+# DNSMOS calculation
+cd $EXP/DNS-Challenge/DNSMOS/
+python dnsmos_local.py -t ${root_dir}/enhanced -o ${root_dir}/enhanced/_results_dnsmos.csv
+awk -F',' '{sum+=$12; ++n} END { print "DNSMOS: " sum/(n-1) }' < ${root_dir}/enhanced/_results_dnsmos.csv > ${root_dir}/enhanced/_results_avg_dnsmos.txt

@@ -30,4 +30,4 @@ c=${c_values[$c_index]}
 k=${k_values[$k_index]}
 
 export WANDB_NAME=sbve_c=${c}_k=${k}
-python train.py --base_dir $DATA/VB+DMD --backbone ncsnpp_v2 --sde sbve --loss_type data_prediction --wandb_name $WANDB_NAME --log_dir ./logs/sbve_ck_sweep --c $c --k $k
+python train.py --base_dir $DATA/VB+DMD --backbone ncsnpp_v2 --sde sbve --loss_type data_prediction --max_epochs 300 --wandb_name $WANDB_NAME --log_dir ./logs/sbve_ck_sweep --c $c --k $k
