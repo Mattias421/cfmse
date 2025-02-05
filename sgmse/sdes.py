@@ -420,7 +420,7 @@ class ICFM(SDE):
         parser.add_argument(
             "--N",
             type=int,
-            default=30,
+            default=50,
             help="The number of timesteps in the SDE discretization. 30 by default",
         )
         parser.add_argument(
@@ -466,7 +466,7 @@ class ICFM(SDE):
         return 1
 
     def _mean(self, x, y, t):
-        return self.cfm.compute_mu_t(x0=y, x1=x, t=t)
+        return self.cfm.compute_mu_t(x0=x, x1=y, t=t)
 
     def _std(self, t):
         sigma_t = self.cfm.compute_sigma_t(t)
@@ -481,9 +481,8 @@ class ICFM(SDE):
             warnings.warn(
                 f"Target shape {shape} does not match shape of y {y.shape}! Ignoring target shape."
             )
-        std = self._std(torch.ones((y.shape[0],), device=y.device))
-        x_0 = y + torch.randn_like(y) * std[:, None, None, None]
-        return x_0
+        x_T = y
+        return x_T
 
     def sde(self, *args):
         raise NotImplementedError("sde is not used for cfm")
