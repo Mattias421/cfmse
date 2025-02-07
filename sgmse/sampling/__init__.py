@@ -346,6 +346,7 @@ def get_cfm_sampler(
     n_steps=50,
     sampler_type="ode",
     device="cuda",
+    loss="data_prediction",
     **kwargs,
 ):
     def icfm_ode_sampler():
@@ -360,9 +361,12 @@ def get_cfm_sampler(
 
                 # Run DNN
                 current_estimate = model(xt, y, time)
+                if loss == "data_prediction":
+                    vt = current_estimate - y
+                else:
+                    vt = current_estimate
 
-                # Update state: weighted sum of previous state, current estimate and prior
-                xt = xt + (current_estimate - y) * 1 / n_steps
+                xt = xt + vt * 1 / n_steps
 
             return xt, n_steps
 

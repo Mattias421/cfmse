@@ -279,8 +279,7 @@ class ScoreModel(pl.LightningModule):
 
         elif self.loss_type == "flow_matching":
             vt = forward_out
-            ut = self.sde.cfm.compute_conditional_flow(y, x, t, x_t)
-            loss = torch.mean(torch.abs(vt - ut) ** 2)
+            ut = self.sde.cfm.compute_conditional_flow(x0=y, x1=x, t=t, xt=x_t)
 
             B, C, F, T = x.shape
 
@@ -585,7 +584,7 @@ class ScoreModel(pl.LightningModule):
             y,
             sampler_type=sampler_type,
             n_steps=N,
-            loss="flow_matching",
+            loss=self.loss_type,
             **kwargs,
         )
 
