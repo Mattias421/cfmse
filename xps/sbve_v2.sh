@@ -17,6 +17,6 @@ module load GCCcore/12.3.0
 source activate cfmse
 
 
-export WANDB_NAME=sbve_c=?_k=?
-python train.py --base_dir $DATA/VB+DMD --backbone ncsnpp_v2 --sde sbve --loss_type data_prediction --wandb_name $WANDB_NAME --log_dir ./logs/sbve_ck_sweep
+export WANDB_NAME=sbve_icfm_mu_nopesq
+python train.py --base_dir $DATA/VB+DMD --backbone ncsnpp_v2 --max_epochs 300 --sde sbve --loss_type data_prediction --wandb_name $WANDB_NAME --log_dir ./logs/$WANDB_NAME
 

@@ -18,9 +18,9 @@ source activate cfmse
 
 ckpt_metric=pesq
 
-export WANDB_NOTES="copy sb loss but replace x and x_hat with vt and ut to enable best icfm model for se"
-export WANDB_NAME=icfm_v2
-python train.py --base_dir $DATA/VB+DMD --backbone ncsnpp_v2 --sde icfm --loss_type flow_matching --wandb_name $WANDB_NAME --pesq_weight 5e-4
+export WANDB_NOTES="copy sb loss but replace x and x_hat with vt and ut to enable best icfm model for se, without pesq loss"
+export WANDB_NAME=icfm_v2_nopesq
+python train.py --base_dir $DATA/VB+DMD --backbone ncsnpp_v2 --sde icfm --loss_type flow_matching --wandb_name $WANDB_NAME
 
 # python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir logs/*${WANDB_NAME}/enhanced_${ckpt_metric} --ckpt logs/*${WANDB_NAME}/epoch=*-${ckpt_metric}=*.ckpt
 #
