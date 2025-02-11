@@ -314,19 +314,10 @@ class SBVESDE(SDE):
         )
         parser.add_argument("--sampler_type", type=str, default="ode")
         parser.add_argument("--mean_type", type=str, default="sb")
-        parser.add_argument("--variance_type", type=str, default="sb")
         return parser
 
     def __init__(
-        self,
-        k,
-        c,
-        N=50,
-        eps=1e-8,
-        sampler_type="ode",
-        mean_type="sb",
-        variance_type="sb",
-        **ignored_kwargs,
+        self, k, c, N=50, eps=1e-8, sampler_type="ode", mean_type="sb", **ignored_kwargs
     ):
         """Construct a Schrodinger Bridge with Variance Exploding SDE.
 
@@ -344,7 +335,6 @@ class SBVESDE(SDE):
         self.eps = eps
         self.sampler_type = sampler_type
         self.mean_type = mean_type
-        self.variance_type = variance_type
 
     def copy(self):
         return SBVESDE(self.k, self.c, N=self.N, mean_type=self.mean_type)
@@ -361,7 +351,6 @@ class SBVESDE(SDE):
     def _sigmas_alphas(self, t):
         alpha_t = torch.ones_like(t)
         alpha_T = torch.ones_like(t)
-
         sigma_t = torch.sqrt(
             (self.c * (self.k ** (2 * t) - 1.0)) / (2 * torch.log(torch.tensor(self.k)))
         )  # Table 1
@@ -400,10 +389,7 @@ class SBVESDE(SDE):
             self._sigmas_alphas(t)
         )
 
-        if self.variance_type == "sb":
-            sigma_xt = (alpha_t * sigma_bart * sigma_t) / (sigma_T + self.eps)
-        else:
-            sigma_xt = torch.full_like(t, self.c)
+        sigma_xt = (alpha_t * sigma_bart * sigma_t) / (sigma_T + self.eps)
         return sigma_xt
 
     def marginal_prob(self, x0, y, t):
