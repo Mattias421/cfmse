@@ -53,13 +53,13 @@ def test_mean(icfm_instance):
     t1 = torch.ones(batch_size)
     mean1 = icfm_instance._mean(x, y, t1)
     assert mean1.shape == x.shape
-    assert torch.allclose(mean1, x, atol=1e-3)  # Check if mean is close to y when t=1
+    assert torch.allclose(mean1, y, atol=1e-3)  # Check if mean is close to y when t=1
 
     # Test t = 0
     t0 = torch.zeros(batch_size)
     mean0 = icfm_instance._mean(x, y, t0)
     assert mean0.shape == x.shape
-    assert torch.allclose(mean0, y, atol=1e-3)  # Check if mean is close to x0 when t=0
+    assert torch.allclose(mean0, x, atol=1e-3)  # Check if mean is close to x0 when t=0
 
     # Test intermediate t
     t_intermediate = 0.5 * torch.ones(batch_size)
