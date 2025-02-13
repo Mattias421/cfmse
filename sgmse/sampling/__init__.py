@@ -371,3 +371,38 @@ def get_cfm_sampler(
             return xt, n_steps
 
     return icfm_ode_sampler
+
+
+def get_nnpath_sampler(
+    sde,
+    model,
+    y,
+    eps=1e-4,
+    n_steps=50,
+    sampler_type="ode",
+    device="cuda",
+    loss="data_prediction",
+    **kwargs,
+):
+    def icfm_ode_sampler():
+        """The ICFMODE sampler function."""
+        with torch.no_grad():
+            xt = y
+            time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
+
+            for t in time_steps[1:]:
+                # Prepare time steps for the whole batch
+                time = t * torch.ones(xt.shape[0], device=xt.device)
+
+                # Run DNN
+                current_estimate = model(xt, y, time)
+                if loss == "data_prediction":
+                    vt = current_estimate - y
+                else:
+                    vt = current_estimate
+
+                xt = xt + vt * 1 / n_steps
+
+            return xt, n_steps
+
+    return icfm_ode_sampler

@@ -107,6 +107,7 @@ class ScoreModel(pl.LightningModule):
         l1_weight=0.001,
         pesq_weight=0.0,
         sr=16000,
+        use_marginal_path_network=False,
         data_module_cls=None,
         **kwargs,
     ):
@@ -172,10 +173,18 @@ class ScoreModel(pl.LightningModule):
             self._error_loading_ema = True
             warnings.warn("EMA state_dict not found in checkpoint!")
 
+        if self.sde.__class__.__name__ == "SBNNSDE":
+            self.sde.marginal_path_nn.load_state_dict(checkpoint["marginal_path_nn"])
+
     def on_save_checkpoint(self, checkpoint):
         checkpoint["ema"] = self.ema.state_dict()
 
+        if self.sde.__class__.__name__ == "SBNNSDE":
+            checkpoint["marginal_path_nn"] = self.sde.marginal_path_nn.state_dict()
+
     def train(self, mode, no_ema=False):
+        if self.sde.__class__.__name__ == "SBNNSDE":
+            self.sde.marginal_path_nn.to(self.device)
         res = super().train(
             mode
         )  # call the standard `train` method with the given mode
@@ -431,6 +440,7 @@ class ScoreModel(pl.LightningModule):
 
         # In [3], we use new code with backbone='ncsnpp_v2':
         if self.backbone == "ncsnpp_v2":
+            breakpoint()
             F = self.dnn(self._c_in(t) * x_t, self._c_in(t) * y, t)
 
             # Scaling the network output, see below Eq. (7) in the paper
@@ -588,6 +598,20 @@ class ScoreModel(pl.LightningModule):
             **kwargs,
         )
 
+    def get_nnpath_sampler(self, sde, y, N=None, loss="flow_matching", **kwargs):
+        N = sde.N if N is None else N
+        sde = self.sde.copy()
+        sde.N = N if N is not None else sde.N
+
+        return sampling.get_nnpath_sampler(
+            sde,
+            self,
+            y,
+            n_steps=N,
+            loss=self.loss_type,
+            **kwargs,
+        )
+
     def train_dataloader(self):
         return self.data_module.train_dataloader()
 
@@ -657,7 +681,10 @@ class ScoreModel(pl.LightningModule):
                     "Invalid sampler type for SGMSE sampling: {}".format(sampler_type)
                 )
         # Schrödinger bridge sampling with VE SDE
-        elif self.sde.__class__.__name__ == "SBVESDE":
+        elif (
+            self.sde.__class__.__name__ == "SBVESDE"
+            or self.sde.__class__.__name__ == "SBNNSDE"
+        ):
             sampler = self.get_sb_sampler(
                 sde=self.sde, y=Y.cuda(), sampler_type=self.sde.sampler_type
             )
@@ -667,6 +694,14 @@ class ScoreModel(pl.LightningModule):
                 Y.cuda(),
                 N=N,
                 sampler_type=self.sde.sampler_type,
+                loss=self.loss_type,
+                **kwargs,
+            )
+        elif self.sde.__class__.__name__ == "NNPath":
+            sampler = self.get_nnpath_sampler(
+                self.sde,
+                Y.cuda(),
+                N=N,
                 loss=self.loss_type,
                 **kwargs,
             )

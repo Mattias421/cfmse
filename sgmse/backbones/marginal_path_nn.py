@@ -58,10 +58,6 @@ class MarginalPathNN(nn.Module):
         modules[-1].weight.data = default_initializer()(modules[-1].weight.shape)
         nn.init.zeros_(modules[-1].bias)
 
-        modules.append(nn.Linear(nf * 4, 1))
-        modules[-1].weight.data = default_initializer()(modules[-1].weight.shape)
-        nn.init.zeros_(modules[-1].bias)
-
         self.all_modules = nn.ModuleList(modules)
 
     def forward(self, t):
@@ -89,13 +85,10 @@ class MarginalPathNN(nn.Module):
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
 
-        weight_alpha = self.act(modules[m_idx](temb))
-        m_idx += 1
-
-        weight_beta = self.act(modules[m_idx](temb))
+        alpha_t = self.act(modules[m_idx](temb))
         m_idx += 1
 
         sigma_t = self.act(modules[m_idx](temb))
         m_idx += 1
 
-        return weight_alpha, weight_beta, sigma_t
+        return alpha_t, sigma_t
