@@ -91,4 +91,4 @@ class MarginalPathNN(nn.Module):
         sigma_t = self.act(modules[m_idx](temb))
         m_idx += 1
 
-        return alpha_t, sigma_t
+        return alpha_t[:, 0], sigma_t[:, 0]

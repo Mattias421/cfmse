@@ -440,7 +440,6 @@ class ScoreModel(pl.LightningModule):
 
         # In [3], we use new code with backbone='ncsnpp_v2':
         if self.backbone == "ncsnpp_v2":
-            breakpoint()
             F = self.dnn(self._c_in(t) * x_t, self._c_in(t) * y, t)
 
             # Scaling the network output, see below Eq. (7) in the paper

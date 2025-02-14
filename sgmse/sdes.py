@@ -480,7 +480,9 @@ class SBNNSDE(SDE):
         alpha_T, sigma_T = self.marginal_path_nn(torch.ones_like(t))
 
         alpha_bart = alpha_t / (alpha_T + self.eps)  # below Eq. (9)
-        sigma_bart = torch.sqrt(sigma_T**2 - sigma_t**2 + self.eps)  # below Eq. (9)
+        sigma_bart = torch.sqrt(
+            abs(sigma_T**2 - sigma_t**2) + self.eps
+        )  # below Eq. (9)
 
         return sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart
 
