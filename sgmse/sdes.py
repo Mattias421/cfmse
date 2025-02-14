@@ -12,6 +12,7 @@ import torch
 
 from sgmse.util.registry import Registry
 from torchcfm.conditional_flow_matching import ConditionalFlowMatcher
+from sgmse.backbones.marginal_path_nn import MarginalPathNN
 
 
 SDERegistry = Registry("SDE")
@@ -421,6 +422,104 @@ class SBVESDE(SDE):
         raise NotImplementedError("prior_logp for SBVE SDE not yet implemented!")
 
 
+@SDERegistry.register("sbnn")
+class SBNNSDE(SDE):
+    @staticmethod
+    def add_argparse_args(parser):
+        parser.add_argument(
+            "--N",
+            type=int,
+            default=50,
+            help="The number of timesteps in the SDE discretization. 50 by default",
+        )
+        parser.add_argument(
+            "--eps",
+            type=float,
+            default=1e-8,
+            help="Small constant to avoid numerical instability. 1e-8 by default.",
+        )
+        parser.add_argument("--sampler_type", type=str, default="ode")
+        return parser
+
+    def __init__(
+        self,
+        N=50,
+        eps=1e-8,
+        sampler_type="ode",
+        **ignored_kwargs,
+    ):
+        """
+        Construct a Schrodinger Bridge with Neural network path
+
+
+        Args:
+            N: number of discretization steps
+        """
+        super().__init__(N)
+        self.N = N
+        self.eps = eps
+        self.sampler_type = sampler_type
+        self.marginal_path_nn = MarginalPathNN()
+
+    def copy(self):
+        sbnn = SBNNSDE(N=self.N)
+        sbnn.marginal_path_nn = self.marginal_path_nn
+        return sbnn
+
+    @property
+    def T(self):
+        return 1
+
+    def sde(self, x, y, t):
+        f = 0.0  # Table 1
+        g = torch.sqrt(torch.tensor(self.c)) * self.k ** (t)  # Table 1
+        return f, g
+
+    def _sigmas_alphas(self, t):
+        alpha_t, sigma_t = self.marginal_path_nn(t)
+        alpha_T, sigma_T = self.marginal_path_nn(torch.ones_like(t))
+
+        alpha_bart = alpha_t / (alpha_T + self.eps)  # below Eq. (9)
+        sigma_bart = torch.sqrt(
+            abs(sigma_T**2 - sigma_t**2) + self.eps
+        )  # below Eq. (9)
+
+        return sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart
+
+    def _mean(self, x0, y, t):
+        sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
+            self._sigmas_alphas(t)
+        )
+
+        w_xt = alpha_t * sigma_bart**2 / (sigma_T**2 + self.eps)  # below Eq. (11)
+        w_yt = alpha_bart * sigma_t**2 / (sigma_T**2 + self.eps)  # below Eq. (11)
+
+        mu = w_xt[:, None, None, None] * x0 + w_yt[:, None, None, None] * y  # Eq. (11)
+        return mu
+
+    def _std(self, t):
+        sigma_t, sigma_T, sigma_bart, alpha_t, alpha_T, alpha_bart = (
+            self._sigmas_alphas(t)
+        )
+
+        sigma_xt = (alpha_t * sigma_bart * sigma_t) / (sigma_T + self.eps)
+        return sigma_xt
+
+    def marginal_prob(self, x0, y, t):
+        return self._mean(x0, y, t), self._std(t)
+
+    def prior_sampling(self, shape, y):
+        if shape != y.shape:
+            warnings.warn(
+                f"Target shape {shape} does not match shape of y {y.shape}! Ignoring target shape."
+            )
+        x_T = y
+        return x_T
+
+    def prior_logp(self, z):
+        raise NotImplementedError("prior_logp for SBVE SDE not yet implemented!")
+
+
 @SDERegistry.register("icfm")
 class ICFM(SDE):
     @staticmethod
@@ -485,6 +584,69 @@ class ICFM(SDE):
     def _std(self, t):
         sigma_t = self.cfm.compute_sigma_t(t)
         sigma_t = torch.full_like(t, sigma_t)
+        return sigma_t
+
+    def marginal_prob(self, x, y, t):
+        return self._mean(x, y, t), self._std(t)
+
+    def prior_sampling(self, shape, y):
+        if shape != y.shape:
+            warnings.warn(
+                f"Target shape {shape} does not match shape of y {y.shape}! Ignoring target shape."
+            )
+        x_T = y
+        return x_T
+
+    def sde(self, *args):
+        raise NotImplementedError("sde is not used for cfm")
+
+    def prior_logp(self, *args):
+        raise NotImplementedError("prior_logp not implemented for cfm")
+
+
+@SDERegistry.register("nn_path")
+class NNPath(SDE):
+    @staticmethod
+    def add_argparse_args(parser):
+        return parser
+
+    def __init__(self, N=30, **ignored_kwargs):
+        """Construct an indepentent flow matcher.
+
+        Note that the "steady-state mean" `y` is not provided at construction, but must rather be given as an argument
+        to the methods which require it (e.g., `sde` or `marginal_prob`).
+
+        dx = -theta (y-x) dt + sigma(t) dw
+
+        with
+
+        sigma(t) = sigma_min (sigma_max/sigma_min)^t * sqrt(2 log(sigma_max/sigma_min))
+
+        Args:
+            theta: stiffness parameter.
+            sigma_min: smallest sigma.
+            sigma_max: largest sigma.
+            N: number of discretization steps
+        """
+        super().__init__(N)
+        self.marginal_path_network = MarginalPathNN()
+        self.N = N
+
+    def copy(self):
+        nn_path_copy = NNPath(N=self.N)
+        nn_path_copy.marginal_path_network = self.marginal_path_network
+        return nn_path_copy
+
+    @property
+    def T(self):
+        return 1
+
+    def _mean(self, x, y, t):
+        weight_a, weight_b, _ = self.marginal_path_network(t)
+        return weight_a * x + weight_b * y
+
+    def _std(self, t):
+        _, _, sigma_t = self.marginal_path_network(t)
         return sigma_t
 
     def marginal_prob(self, x, y, t):
