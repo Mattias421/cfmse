@@ -173,18 +173,27 @@ class ScoreModel(pl.LightningModule):
             self._error_loading_ema = True
             warnings.warn("EMA state_dict not found in checkpoint!")
 
-        if self.sde.__class__.__name__ == "SBNNSDE":
+        if (
+            self.sde.__class__.__name__ == "SBNNSDE"
+            or self.sde.__class__.__name__ == "NNPath"
+        ):
             self.sde.marginal_path_nn.load_state_dict(checkpoint["marginal_path_nn"])
             self.sde.marginal_path_nn = self.sde.marginal_path_nn.to(self.device)
 
     def on_save_checkpoint(self, checkpoint):
         checkpoint["ema"] = self.ema.state_dict()
 
-        if self.sde.__class__.__name__ == "SBNNSDE":
+        if (
+            self.sde.__class__.__name__ == "SBNNSDE"
+            or self.sde.__class__.__name__ == "NNPath"
+        ):
             checkpoint["marginal_path_nn"] = self.sde.marginal_path_nn.state_dict()
 
     def train(self, mode, no_ema=False):
-        if self.sde.__class__.__name__ == "SBNNSDE":
+        if (
+            self.sde.__class__.__name__ == "SBNNSDE"
+            or self.sde.__class__.__name__ == "NNPath"
+        ):
             self.sde.marginal_path_nn.to(self.device)
         res = super().train(
             mode
@@ -287,6 +296,19 @@ class ScoreModel(pl.LightningModule):
             else:
                 loss = losses_tf + self.l1_weight * losses_l1
 
+            if self.sde.__class__.__name__ == "NNPath":
+                weight_a1, weight_b1, _ = self.sde.marginal_path_nn(torch.ones_like(t))
+                loss_weight1 = torch.mean(
+                    0.5 * torch.square(weight_a1 - 1)
+                ) + torch.mean(0.5 * torch.square(weight_b1 - 0))
+
+                weight_a0, weight_b0, _ = self.sde.marginal_path_nn(torch.zeros_like(t))
+                loss_weight0 = torch.mean(
+                    0.5 * torch.square(weight_a1 - 0)
+                ) + torch.mean(0.5 * torch.square(weight_b1 - 1))
+
+                loss = loss + loss_weight0 + loss_weight1
+
         elif self.loss_type == "flow_matching":
             vt = forward_out
             ut = self.sde.cfm.compute_conditional_flow(x0=y, x1=x, t=t, xt=x_t)
@@ -320,6 +342,7 @@ class ScoreModel(pl.LightningModule):
                 )
             else:
                 loss = losses_tf + self.l1_weight * losses_l1
+
         else:
             raise ValueError("Invalid loss type: {}".format(self.loss_type))
 

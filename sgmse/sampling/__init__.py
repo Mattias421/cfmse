@@ -393,8 +393,7 @@ def get_nnpath_sampler(
     loss="data_prediction",
     **kwargs,
 ):
-    def icfm_ode_sampler():
-        """The ICFMODE sampler function."""
+    def ode_sampler():
         with torch.no_grad():
             xt = y
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
@@ -404,9 +403,19 @@ def get_nnpath_sampler(
                 time = t * torch.ones(xt.shape[0], device=xt.device)
 
                 # Run DNN
+                with torch.enable_grad():
+                    time.requires_grad_(True)
+                    weight_a, weight_b, _ = sde.marginal_path_nn(time)
+
+                    da = torch.autograd.grad(weight_a, time, retain_graph=True)[0]
+                    db = torch.autograd.grad(weight_b, time)[0]
+
+                time.requires_grad_(False)
+
                 current_estimate = model(xt, y, time)
+
                 if loss == "data_prediction":
-                    vt = current_estimate - y
+                    vt = da * current_estimate + db * y
                 else:
                     vt = current_estimate
 
@@ -414,4 +423,4 @@ def get_nnpath_sampler(
 
             return xt, n_steps
 
-    return icfm_ode_sampler
+    return ode_sampler
