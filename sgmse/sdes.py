@@ -438,6 +438,11 @@ class SBNNSDE(SDE):
             default=1e-8,
             help="Small constant to avoid numerical instability. 1e-8 by default.",
         )
+        parser.add_argument(
+            "--predict_alpha",
+            type=bool,
+            help="Whether to predict alpha or have alpha equal 1",
+        )
         parser.add_argument("--sampler_type", type=str, default="ode")
         return parser
 
@@ -445,6 +450,7 @@ class SBNNSDE(SDE):
         self,
         N=50,
         eps=1e-8,
+        predict_alpha=True,
         sampler_type="ode",
         **ignored_kwargs,
     ):
@@ -460,6 +466,7 @@ class SBNNSDE(SDE):
         self.eps = eps
         self.sampler_type = sampler_type
         self.marginal_path_nn = MarginalPathNN()
+        self.predict_alpha = predict_alpha
 
     def copy(self):
         sbnn = SBNNSDE(N=self.N)
@@ -478,6 +485,10 @@ class SBNNSDE(SDE):
     def _sigmas_alphas(self, t):
         alpha_t, sigma_t = self.marginal_path_nn(t)
         alpha_T, sigma_T = self.marginal_path_nn(torch.ones_like(t))
+
+        if not self.predict_alpha:
+            alpha_t = torch.ones_like(alpha_t)
+            alpha_T = torch.ones_like(alpha_T)
 
         alpha_bart = alpha_t / (alpha_T + self.eps)  # below Eq. (9)
         sigma_bart = torch.sqrt(

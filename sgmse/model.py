@@ -175,6 +175,7 @@ class ScoreModel(pl.LightningModule):
 
         if self.sde.__class__.__name__ == "SBNNSDE":
             self.sde.marginal_path_nn.load_state_dict(checkpoint["marginal_path_nn"])
+            self.sde.marginal_path_nn = self.sde.marginal_path_nn.to(self.device)
 
     def on_save_checkpoint(self, checkpoint):
         checkpoint["ema"] = self.ema.state_dict()

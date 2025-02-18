@@ -67,6 +67,9 @@ if __name__ == "__main__":
     model.t_eps = args.t_eps
     model.eval()
 
+    if model.sde.__class__.__name__ == "SBNNSDE":
+        model.sde.marginal_path_nn = model.sde.marginal_path_nn.to(args.device)
+
     # Get list of noisy files
     noisy_files = []
     noisy_files += sorted(glob.glob(join(args.test_dir, "*.wav")))
@@ -122,7 +125,10 @@ if __name__ == "__main__":
                 sampler = model.get_ode_sampler(Y.to(args.device), N=args.N)
             else:
                 raise ValueError(f"Sampler type {args.sampler_type} not supported")
-        elif model.sde.__class__.__name__ == "SBVESDE":
+        elif (
+            model.sde.__class__.__name__ == "SBVESDE"
+            or model.sde.__class__.__name__ == "SBNNSDE"
+        ):
             model = model.to(args.device)
             sampler_type = "ode" if args.sampler_type == "pc" else args.sampler_type
             sampler = model.get_sb_sampler(
