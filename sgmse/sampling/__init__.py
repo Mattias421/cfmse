@@ -244,6 +244,9 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
 
     def ode_sampler():
         """The SB-ODE sampler function."""
+        # alpha_t_log = []
+        # sigma_t_log = []
+
         with torch.no_grad():
             xt = y
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
@@ -308,6 +311,12 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
                 sigma_prev = sigma_t
                 sigma_bar_prev = sigma_bart
 
+            #     alpha_t_log.append(alpha_t.item())
+            #     sigma_t_log.append(sigma_t.item())
+            #
+            # import matplotlib.pyplot as plt
+            # plt.plot(sigma_t_log)
+            # plt.show()
             return xt, n_steps
 
     def icfm_ode_sampler():
