@@ -640,12 +640,12 @@ class NNPath(SDE):
             N: number of discretization steps
         """
         super().__init__(N)
-        self.marginal_path_network = MarginalPathNN()
+        self.marginal_path_nn = MarginalPathNN(two_weights=True)
         self.N = N
 
     def copy(self):
         nn_path_copy = NNPath(N=self.N)
-        nn_path_copy.marginal_path_network = self.marginal_path_network
+        nn_path_copy.marginal_path_nn = self.marginal_path_nn
         return nn_path_copy
 
     @property
@@ -653,11 +653,13 @@ class NNPath(SDE):
         return 1
 
     def _mean(self, x, y, t):
-        weight_a, weight_b, _ = self.marginal_path_network(t)
+        weight_a, weight_b, _ = self.marginal_path_nn(t)
+        weight_a = weight_a[:, None, None, None]
+        weight_b = weight_b[:, None, None, None]
         return weight_a * x + weight_b * y
 
     def _std(self, t):
-        _, _, sigma_t = self.marginal_path_network(t)
+        _, _, sigma_t = self.marginal_path_nn(t)
         return sigma_t
 
     def marginal_prob(self, x, y, t):

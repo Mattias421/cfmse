@@ -18,6 +18,7 @@ class MarginalPathNN(nn.Module):
         nonlinearity="swish",
         fourier_scale=16,
         embedding_type="fourier",
+        two_weights=False,
         **unused_kwargs,
     ):
         super().__init__()
@@ -58,6 +59,13 @@ class MarginalPathNN(nn.Module):
         modules[-1].weight.data = default_initializer()(modules[-1].weight.shape)
         nn.init.zeros_(modules[-1].bias)
 
+        self.two_weights = two_weights
+
+        if self.two_weights:
+            modules.append(nn.Linear(nf * 4, 1))
+            modules[-1].weight.data = default_initializer()(modules[-1].weight.shape)
+            nn.init.zeros_(modules[-1].bias)
+
         self.all_modules = nn.ModuleList(modules)
 
     def forward(self, t):
@@ -85,10 +93,16 @@ class MarginalPathNN(nn.Module):
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
 
-        alpha_t = self.act(modules[m_idx](temb))
+        weight_1 = self.act(modules[m_idx](temb))
         m_idx += 1
 
         sigma_t = self.act(modules[m_idx](temb))
         m_idx += 1
 
-        return alpha_t[:, 0], sigma_t[:, 0]
+        if self.two_weights:
+            weight_2 = self.act(modules[m_idx](temb))
+            m_idx += 1
+
+            return weight_1[:, 0], weight_2[:, 0], sigma_t[:, 0]
+        else:
+            return weight_1[:, 0], sigma_t[:, 0]
