@@ -299,13 +299,13 @@ class ScoreModel(pl.LightningModule):
             if self.sde.__class__.__name__ == "NNPath":
                 weight_a1, weight_b1, _ = self.sde.marginal_path_nn(torch.ones_like(t))
                 loss_weight1 = torch.mean(
-                    0.5 * torch.square(weight_a1 - 1)
-                ) + torch.mean(0.5 * torch.square(weight_b1 - 0))
+                    0.5 * torch.square(weight_a1 - 0)
+                ) + torch.mean(0.5 * torch.square(weight_b1 - 1))
 
                 weight_a0, weight_b0, _ = self.sde.marginal_path_nn(torch.zeros_like(t))
                 loss_weight0 = torch.mean(
-                    0.5 * torch.square(weight_a0 - 0)
-                ) + torch.mean(0.5 * torch.square(weight_b0 - 1))
+                    0.5 * torch.square(weight_a0 - 1)
+                ) + torch.mean(0.5 * torch.square(weight_b0 - 0))
 
                 loss = loss + loss_weight0 + loss_weight1
 
