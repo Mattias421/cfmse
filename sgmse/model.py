@@ -304,8 +304,8 @@ class ScoreModel(pl.LightningModule):
 
                 weight_a0, weight_b0, _ = self.sde.marginal_path_nn(torch.zeros_like(t))
                 loss_weight0 = torch.mean(
-                    0.5 * torch.square(weight_a1 - 0)
-                ) + torch.mean(0.5 * torch.square(weight_b1 - 1))
+                    0.5 * torch.square(weight_a0 - 0)
+                ) + torch.mean(0.5 * torch.square(weight_b0 - 1))
 
                 loss = loss + loss_weight0 + loss_weight1
 
