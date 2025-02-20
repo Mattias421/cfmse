@@ -93,14 +93,14 @@ class MarginalPathNN(nn.Module):
         temb = modules[m_idx](self.act(temb))
         m_idx += 1
 
-        weight_1 = self.act(modules[m_idx](temb))
+        weight_1 = torch.sigmoid(modules[m_idx](temb))
         m_idx += 1
 
-        sigma_t = self.act(modules[m_idx](temb))
+        sigma_t = torch.sigmoid(modules[m_idx](temb))
         m_idx += 1
 
         if self.two_weights:
-            weight_2 = self.act(modules[m_idx](temb))
+            weight_2 = torch.sigmoid(modules[m_idx](temb))
             m_idx += 1
 
             return weight_1[:, 0], weight_2[:, 0], sigma_t[:, 0]
