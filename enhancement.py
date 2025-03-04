@@ -71,6 +71,7 @@ if __name__ == "__main__":
         model.sde.__class__.__name__ == "SBNNSDE"
         or model.sde.__class__.__name__ == "NNPath"
     ):
+        print("putting model on device")
         model.sde.marginal_path_nn = model.sde.marginal_path_nn.to(args.device)
 
     # Get list of noisy files
@@ -144,6 +145,7 @@ if __name__ == "__main__":
                 sde=model.sde, y=Y.cuda(), sampler_type=sampler_type
             )
         elif model.sde.__class__.__name__ == "NNPath":
+            model = model.to(args.device)
             sampler = model.get_nnpath_sampler(
                 model.sde,
                 Y.cuda(),

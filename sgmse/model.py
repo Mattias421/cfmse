@@ -16,6 +16,7 @@ from sgmse.util.other import pad_spec, si_sdr
 from pesq import pesq
 from pystoi import stoi
 from torch_pesq import PesqLoss
+import torchaudio
 
 
 class ScoreModel(pl.LightningModule):
@@ -85,6 +86,18 @@ class ScoreModel(pl.LightningModule):
             help="The balance between the time-frequency and time-domain losses.",
         )
         parser.add_argument(
+            "--hubert_weight",
+            type=float,
+            default=0.0,
+            help="The weight of the hubert loss",
+        )
+        parser.add_argument(
+            "--hubert_layer",
+            type=int,
+            default=12,
+            help="Layer of hubert to use (1-12)",
+        )
+        parser.add_argument(
             "--sr", type=int, default=16000, help="The sample rate of the audio files."
         )
         return parser
@@ -106,6 +119,8 @@ class ScoreModel(pl.LightningModule):
         sigma_data=0.1,
         l1_weight=0.001,
         pesq_weight=0.0,
+        hubert_weight=0.0,
+        hubert_layer=12,
         sr=16000,
         use_marginal_path_network=False,
         data_module_cls=None,
@@ -140,6 +155,8 @@ class ScoreModel(pl.LightningModule):
         self.loss_weighting = loss_weighting
         self.l1_weight = l1_weight
         self.pesq_weight = pesq_weight
+        self.hubert_weight = hubert_weight
+        self.hubert_layer = hubert_layer
         self.network_scaling = network_scaling
         self.c_in = c_in
         self.c_out = c_out
@@ -152,6 +169,12 @@ class ScoreModel(pl.LightningModule):
             self.pesq_loss = PesqLoss(1.0, sample_rate=sr).eval()
             for param in self.pesq_loss.parameters():
                 param.requires_grad = False
+
+        if hubert_weight > 0.0:
+            self.hubert = torchaudio.pipelines.HUBERT_BASE.get_model()
+            for param in self.hubert.parameters():
+                param.requires_grad = False
+
         self.save_hyperparameters(ignore=["no_wandb"])
         self.data_module = data_module_cls(**kwargs, gpu=kwargs.get("gpus", 0) > 0)
 
@@ -177,7 +200,9 @@ class ScoreModel(pl.LightningModule):
             self.sde.__class__.__name__ == "SBNNSDE"
             or self.sde.__class__.__name__ == "NNPath"
         ):
+            print("Loading NN marginal path networks checkpoint")
             self.sde.marginal_path_nn.load_state_dict(checkpoint["marginal_path_nn"])
+            print(next(self.sde.marginal_path_nn.named_parameters()))
             self.sde.marginal_path_nn = self.sde.marginal_path_nn.to(self.device)
 
     def on_save_checkpoint(self, checkpoint):
@@ -187,6 +212,8 @@ class ScoreModel(pl.LightningModule):
             self.sde.__class__.__name__ == "SBNNSDE"
             or self.sde.__class__.__name__ == "NNPath"
         ):
+            print("saving marginal_path_nn state_dict")
+            print(next(self.sde.marginal_path_nn.named_parameters()))
             checkpoint["marginal_path_nn"] = self.sde.marginal_path_nn.state_dict()
 
     def train(self, mode, no_ema=False):
@@ -344,6 +371,35 @@ class ScoreModel(pl.LightningModule):
                 )
             else:
                 loss = losses_tf + self.l1_weight * losses_l1
+
+            if self.hubert_weight > 0.0:
+                if len(vt_td.shape) != 2:
+                    vt_td = vt_td[None]
+                    ut_td = ut_td[None]
+
+                vt_hubert, _ = self.hubert.extract_features(
+                    vt_td, num_layers=self.hubert_layer
+                )
+                vt_hubert = vt_hubert[-1]
+                ut_hubert, _ = self.hubert.extract_features(
+                    ut_td, num_layers=self.hubert_layer
+                )
+                ut_hubert = ut_hubert[-1]
+
+                B, F, T = vt_hubert.shape
+
+                # losses in the hubert domain
+                losses_hubert = (1 / (F * T)) * torch.square(
+                    torch.abs(vt_hubert - ut_hubert)
+                )
+                losses_hubert = torch.mean(
+                    0.5
+                    * torch.sum(
+                        losses_hubert.reshape(losses_hubert.shape[0], -1), dim=-1
+                    )
+                )
+
+                loss = loss + self.hubert_weight * losses_hubert
 
         else:
             raise ValueError("Invalid loss type: {}".format(self.loss_type))

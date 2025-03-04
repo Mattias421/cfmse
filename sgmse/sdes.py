@@ -621,7 +621,7 @@ class NNPath(SDE):
     def add_argparse_args(parser):
         return parser
 
-    def __init__(self, N=30, **ignored_kwargs):
+    def __init__(self, N=50, **ignored_kwargs):
         """Construct an indepentent flow matcher.
 
         Note that the "steady-state mean" `y` is not provided at construction, but must rather be given as an argument

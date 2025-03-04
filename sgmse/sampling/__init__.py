@@ -394,6 +394,8 @@ def get_nnpath_sampler(
     **kwargs,
 ):
     def ode_sampler():
+        WA = []
+        WB = []
         with torch.no_grad():
             xt = y
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
@@ -406,6 +408,9 @@ def get_nnpath_sampler(
                 with torch.enable_grad():
                     time.requires_grad_(True)
                     weight_a, weight_b, _ = sde.marginal_path_nn(time)
+
+                    WA.append(weight_a.item())
+                    WB.append(weight_b.item())
 
                     da = torch.autograd.grad(weight_a, time, retain_graph=True)[0]
                     db = torch.autograd.grad(weight_b, time)[0]
@@ -421,6 +426,13 @@ def get_nnpath_sampler(
 
                 xt = xt + vt * 1 / n_steps
 
+            import matplotlib.pyplot as plt
+
+            plt.plot(WA)
+            plt.show()
+            plt.clf()
+            plt.plot(WB)
+            plt.show()
             return xt, n_steps
 
     return ode_sampler
