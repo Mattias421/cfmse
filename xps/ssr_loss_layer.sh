@@ -15,7 +15,8 @@ module load GCCcore/11.3.0
 source activate cfmse
 
 layer=$SLURM_ARRAY_TASK_ID
+model=wavlm
 
-export WANDB_NAME=hubert_l${layer}
-export WANDB_TAGS=("hubert_loss_layer")
-python train.py --base_dir $DATA/VB+DMD --max_epochs 300 --backbone ncsnpp_v2 --sde icfm --loss_type flow_matching --wandb_name $WANDB_NAME --log_dir ./logs/hubert_loss_layer/${WANDB_NAME} --hubert_weight 0.001 --hubert_layer $layer
+export WANDB_NAME=${model}_l${layer}
+export WANDB_TAGS=("${model}_loss_layer")
+python train.py --base_dir $DATA/VB+DMD --max_epochs 300 --backbone ncsnpp_v2 --sde icfm --loss_type flow_matching --wandb_name $WANDB_NAME --log_dir ./logs/${model}_loss_layer/${WANDB_NAME} --ssr_weight 0.001 --ssr_layer $layer --ssr_model $model

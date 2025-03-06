@@ -86,16 +86,22 @@ class ScoreModel(pl.LightningModule):
             help="The balance between the time-frequency and time-domain losses.",
         )
         parser.add_argument(
-            "--hubert_weight",
+            "--ssr_weight",
             type=float,
             default=0.0,
             help="The weight of the hubert loss",
         )
         parser.add_argument(
-            "--hubert_layer",
+            "--ssr_layer",
             type=int,
             default=12,
             help="Layer of hubert to use (1-12)",
+        )
+        parser.add_argument(
+            "--ssr_model",
+            type=str,
+            default="hubert",
+            help="Which SSR model to use for representation loss (hubert, wavlm)",
         )
         parser.add_argument(
             "--sr", type=int, default=16000, help="The sample rate of the audio files."
@@ -119,8 +125,9 @@ class ScoreModel(pl.LightningModule):
         sigma_data=0.1,
         l1_weight=0.001,
         pesq_weight=0.0,
-        hubert_weight=0.0,
-        hubert_layer=12,
+        ssr_model="hubert",
+        ssr_weight=0.0,
+        ssr_layer=12,
         sr=16000,
         use_marginal_path_network=False,
         data_module_cls=None,
@@ -155,8 +162,8 @@ class ScoreModel(pl.LightningModule):
         self.loss_weighting = loss_weighting
         self.l1_weight = l1_weight
         self.pesq_weight = pesq_weight
-        self.hubert_weight = hubert_weight
-        self.hubert_layer = hubert_layer
+        self.ssr_weight = ssr_weight
+        self.ssr_layer = ssr_layer
         self.network_scaling = network_scaling
         self.c_in = c_in
         self.c_out = c_out
@@ -170,9 +177,13 @@ class ScoreModel(pl.LightningModule):
             for param in self.pesq_loss.parameters():
                 param.requires_grad = False
 
-        if hubert_weight > 0.0:
-            self.hubert = torchaudio.pipelines.HUBERT_BASE.get_model()
-            for param in self.hubert.parameters():
+        if ssr_weight > 0.0:
+            if ssr_model == "hubert":
+                self.ssr_model = torchaudio.pipelines.HUBERT_BASE.get_model()
+            elif ssr_model == "wavlm":
+                self.ssr_model = torchaudio.pipelines.WAVLM_BASE.get_model()
+
+            for param in self.ssr_model.parameters():
                 param.requires_grad = False
 
         self.save_hyperparameters(ignore=["no_wandb"])
@@ -372,34 +383,29 @@ class ScoreModel(pl.LightningModule):
             else:
                 loss = losses_tf + self.l1_weight * losses_l1
 
-            if self.hubert_weight > 0.0:
+            if self.ssr_weight > 0.0:
                 if len(vt_td.shape) != 2:
                     vt_td = vt_td[None]
                     ut_td = ut_td[None]
 
-                vt_hubert, _ = self.hubert.extract_features(
-                    vt_td, num_layers=self.hubert_layer
+                vt_ssr, _ = self.ssr_model.extract_features(
+                    vt_td, num_layers=self.ssr_layer
                 )
-                vt_hubert = vt_hubert[-1]
-                ut_hubert, _ = self.hubert.extract_features(
-                    ut_td, num_layers=self.hubert_layer
+                vt_ssr = vt_ssr[-1]
+                ut_ssr, _ = self.ssr_model.extract_features(
+                    ut_td, num_layers=self.ssr_layer
                 )
-                ut_hubert = ut_hubert[-1]
+                ut_ssr = ut_ssr[-1]
 
-                B, F, T = vt_hubert.shape
+                B, F, T = vt_ssr.shape
 
-                # losses in the hubert domain
-                losses_hubert = (1 / (F * T)) * torch.square(
-                    torch.abs(vt_hubert - ut_hubert)
-                )
-                losses_hubert = torch.mean(
-                    0.5
-                    * torch.sum(
-                        losses_hubert.reshape(losses_hubert.shape[0], -1), dim=-1
-                    )
+                # losses in the ssr domain
+                losses_ssr = (1 / (F * T)) * torch.square(torch.abs(vt_ssr - ut_ssr))
+                losses_ssr = torch.mean(
+                    0.5 * torch.sum(losses_ssr.reshape(losses_ssr.shape[0], -1), dim=-1)
                 )
 
-                loss = loss + self.hubert_weight * losses_hubert
+                loss = loss + self.ssr_weight * losses_ssr
 
         else:
             raise ValueError("Invalid loss type: {}".format(self.loss_type))
