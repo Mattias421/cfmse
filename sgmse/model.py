@@ -17,6 +17,7 @@ from pesq import pesq
 from pystoi import stoi
 from torch_pesq import PesqLoss
 import torchaudio
+import whisper
 
 
 class ScoreModel(pl.LightningModule):
@@ -89,19 +90,19 @@ class ScoreModel(pl.LightningModule):
             "--ssr_weight",
             type=float,
             default=0.0,
-            help="The weight of the hubert loss",
+            help="The weight of the ssr loss",
         )
         parser.add_argument(
             "--ssr_layer",
             type=int,
             default=12,
-            help="Layer of hubert to use (1-12)",
+            help="Layer of ssr to use (1-12)",
         )
         parser.add_argument(
-            "--ssr_model",
+            "--ssr_model_name",
             type=str,
             default="hubert",
-            help="Which SSR model to use for representation loss (hubert, wavlm)",
+            help="Which SSR model to use for representation loss (hubert, wavlm, whisper)",
         )
         parser.add_argument(
             "--sr", type=int, default=16000, help="The sample rate of the audio files."
@@ -125,7 +126,7 @@ class ScoreModel(pl.LightningModule):
         sigma_data=0.1,
         l1_weight=0.001,
         pesq_weight=0.0,
-        ssr_model="hubert",
+        ssr_model_name="hubert",
         ssr_weight=0.0,
         ssr_layer=12,
         sr=16000,
@@ -164,6 +165,7 @@ class ScoreModel(pl.LightningModule):
         self.pesq_weight = pesq_weight
         self.ssr_weight = ssr_weight
         self.ssr_layer = ssr_layer
+        self.ssr_model_name = ssr_model_name
         self.network_scaling = network_scaling
         self.c_in = c_in
         self.c_out = c_out
@@ -178,10 +180,19 @@ class ScoreModel(pl.LightningModule):
                 param.requires_grad = False
 
         if ssr_weight > 0.0:
-            if ssr_model == "hubert":
+            if ssr_model_name == "hubert":
                 self.ssr_model = torchaudio.pipelines.HUBERT_BASE.get_model()
-            elif ssr_model == "wavlm":
+            elif ssr_model_name == "wavlm":
                 self.ssr_model = torchaudio.pipelines.WAVLM_BASE.get_model()
+            elif ssr_model_name == "whisper":
+                self.ssr_model = whisper.load_model("base.en")
+                # self.ssr_model.register_buffer("alignment_heads", self.ssr_model.all_heads.to_sparse(), persistent=False)
+                alignment_heads_dense = self.ssr_model.get_buffer(
+                    "alignment_heads"
+                ).to_dense()
+                self.ssr_model.register_buffer(
+                    "alignment_heads", alignment_heads_dense, persistent=False
+                )
 
             for param in self.ssr_model.parameters():
                 param.requires_grad = False
@@ -388,14 +399,26 @@ class ScoreModel(pl.LightningModule):
                     vt_td = vt_td[None]
                     ut_td = ut_td[None]
 
-                vt_ssr, _ = self.ssr_model.extract_features(
-                    vt_td, num_layers=self.ssr_layer
-                )
-                vt_ssr = vt_ssr[-1]
-                ut_ssr, _ = self.ssr_model.extract_features(
-                    ut_td, num_layers=self.ssr_layer
-                )
-                ut_ssr = ut_ssr[-1]
+                if self.ssr_model_name in ["hubert", "wavlm"]:
+                    vt_ssr, _ = self.ssr_model.extract_features(
+                        vt_td, num_layers=self.ssr_layer
+                    )
+                    vt_ssr = vt_ssr[-1]
+                    ut_ssr, _ = self.ssr_model.extract_features(
+                        ut_td, num_layers=self.ssr_layer
+                    )
+                    ut_ssr = ut_ssr[-1]
+
+                elif self.ssr_model_name in ["whisper"]:
+                    vt_mel = whisper.log_mel_spectrogram(
+                        whisper.pad_or_trim(vt_td), n_mels=self.ssr_model.dims.n_mels
+                    )
+                    ut_mel = whisper.log_mel_spectrogram(
+                        whisper.pad_or_trim(ut_td), n_mels=self.ssr_model.dims.n_mels
+                    )
+
+                    vt_ssr = self.ssr_model.encoder(vt_mel)
+                    ut_ssr = self.ssr_model.encoder(ut_mel)
 
                 B, F, T = vt_ssr.shape
 
