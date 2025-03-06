@@ -30,6 +30,7 @@ class Specs(Dataset):
         normalize="noisy",
         spec_transform=None,
         stft_kwargs=None,
+        unpaired=False,
         **ignored_kwargs,
     ):
         # Read file paths according to file naming format.
@@ -66,20 +67,24 @@ class Specs(Dataset):
         self.shuffle_spec = shuffle_spec
         self.normalize = normalize
         self.spec_transform = spec_transform
+        self.unpaired = unpaired
 
         assert all(
             k in stft_kwargs.keys() for k in ["n_fft", "hop_length", "center", "window"]
         ), "misconfigured STFT kwargs"
         self.stft_kwargs = stft_kwargs
         self.hop_length = self.stft_kwargs["hop_length"]
-        assert self.stft_kwargs.get("center", None) == True, (
+        assert self.stft_kwargs.get("center", None) is True, (
             "'center' must be True for current implementation"
         )
 
     def __getitem__(self, i):
-        x, _ = load(self.clean_files[i])
-        y, _ = load(self.noisy_files[i])
-
+        if self.unpaired:
+            x, _ = load(self.clean_files[i])
+            y, _ = load(self.noisy_files[torch.randint(0, self.__len__(), (1,)).item()])
+        else:
+            x, _ = load(self.clean_files[i])
+            y, _ = load(self.noisy_files[i])
 
         # formula applies for center=True
         target_len = (self.num_frames - 1) * self.hop_length
@@ -92,10 +97,21 @@ class Specs(Dataset):
             else:
                 start = int((current_len - target_len) / 2)
             x = x[..., start : start + target_len]
-            y = y[..., start : start + target_len]
         else:
             # pad audio if the length T is smaller than num_frames
             x = F.pad(x, (pad // 2, pad // 2 + (pad % 2)), mode="constant")
+
+        current_len = y.size(-1)
+        pad = max(target_len - current_len, 0)
+        if pad == 0:
+            # extract random part of the audio file
+            if self.shuffle_spec:
+                start = int(np.random.uniform(0, current_len - target_len))
+            else:
+                start = int((current_len - target_len) / 2)
+            y = y[..., start : start + target_len]
+        else:
+            # pad audio if the length T is smaller than num_frames
             y = F.pad(y, (pad // 2, pad // 2 + (pad % 2)), mode="constant")
 
         # normalize w.r.t to the noisy or the clean signal or not at all
@@ -176,6 +192,11 @@ class SpecsDataModule(pl.LightningDataModule):
             help="Use reduced dummy dataset for prototyping.",
         )
         parser.add_argument(
+            "--unpaired",
+            action="store_true",
+            help="Whether to use unpaired data or not",
+        )
+        parser.add_argument(
             "--spec_factor",
             type=float,
             default=0.15,
@@ -214,6 +235,7 @@ class SpecsDataModule(pl.LightningDataModule):
         window="hann",
         num_workers=4,
         dummy=False,
+        unpaired=False,
         spec_factor=0.15,
         spec_abs_exponent=0.5,
         gpu=True,
@@ -238,6 +260,7 @@ class SpecsDataModule(pl.LightningDataModule):
         self.normalize = normalize
         self.transform_type = transform_type
         self.kwargs = kwargs
+        self.unpaired = unpaired
 
     def setup(self, stage=None):
         specs_kwargs = dict(
@@ -254,6 +277,7 @@ class SpecsDataModule(pl.LightningDataModule):
                 shuffle_spec=True,
                 format=self.format,
                 normalize=self.normalize,
+                unpaired=self.unpaired,
                 **specs_kwargs,
             )
             self.valid_set = Specs(

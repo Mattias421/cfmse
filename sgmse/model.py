@@ -18,6 +18,7 @@ from pystoi import stoi
 from torch_pesq import PesqLoss
 import torchaudio
 import whisper
+from sgmse.optimal_transport import OTPlanSamplerComplex
 
 
 class ScoreModel(pl.LightningModule):
@@ -107,6 +108,11 @@ class ScoreModel(pl.LightningModule):
         parser.add_argument(
             "--sr", type=int, default=16000, help="The sample rate of the audio files."
         )
+        parser.add_argument(
+            "--ot_minibatch",
+            action="store_true",
+            help="Whether to use ot minibatches or not (for unpaired training)",
+        )
         return parser
 
     def __init__(
@@ -132,6 +138,7 @@ class ScoreModel(pl.LightningModule):
         sr=16000,
         use_marginal_path_network=False,
         data_module_cls=None,
+        ot_minibatch=False,
         **kwargs,
     ):
         """
@@ -173,6 +180,7 @@ class ScoreModel(pl.LightningModule):
         self.sigma_data = sigma_data
         self.num_eval_files = num_eval_files
         self.sr = sr
+        self.ot_minibatch = ot_minibatch
         # Initialize PESQ loss if pesq_weight > 0.0
         if pesq_weight > 0.0:
             self.pesq_loss = PesqLoss(1.0, sample_rate=sr).eval()
@@ -196,6 +204,9 @@ class ScoreModel(pl.LightningModule):
 
             for param in self.ssr_model.parameters():
                 param.requires_grad = False
+
+        if ot_minibatch:
+            self.ot_sampler = OTPlanSamplerComplex(method="exact")
 
         self.save_hyperparameters(ignore=["no_wandb"])
         self.data_module = data_module_cls(**kwargs, gpu=kwargs.get("gpus", 0) > 0)
@@ -437,6 +448,10 @@ class ScoreModel(pl.LightningModule):
 
     def _step(self, batch, batch_idx):
         x, y = batch
+
+        if self.ot_minibatch:
+            x, y = self.ot_sampler.sample_plan(x, y)
+
         t = (
             torch.rand(x.shape[0], device=x.device) * (self.sde.T - self.t_eps)
             + self.t_eps
