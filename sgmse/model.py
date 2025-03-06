@@ -408,6 +408,7 @@ class ScoreModel(pl.LightningModule):
 
     def _step(self, batch, batch_idx):
         x, y = batch
+        breakpoint()
         t = (
             torch.rand(x.shape[0], device=x.device) * (self.sde.T - self.t_eps)
             + self.t_eps
