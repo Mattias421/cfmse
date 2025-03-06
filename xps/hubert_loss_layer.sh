@@ -18,4 +18,4 @@ layer=$SLURM_ARRAY_TASK_ID
 
 export WANDB_NAME=hubert_l${layer}
 export WANDB_TAGS=("hubert_loss_layer")
-python train.py --base_dir $DATA/VB+DMD --max_epochs 300 --backbone ncsnpp_v2 --sde icfm --loss_type flow_matching --wandb_name $WANDB_NAME --log_dir ./logs/hubert_loss_layer/${WANDB_NAME} --sigma $sigma --l1_weight $l1_weight --hubert_weight 0.001 --hubert_layer $layer
+python train.py --base_dir $DATA/VB+DMD --max_epochs 300 --backbone ncsnpp_v2 --sde icfm --loss_type flow_matching --wandb_name $WANDB_NAME --log_dir ./logs/hubert_loss_layer/${WANDB_NAME} --hubert_weight 0.001 --hubert_layer $layer
