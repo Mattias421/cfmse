@@ -19,15 +19,12 @@ source activate cfmse
 
 root_dir=$EXP/cfmse/logs/nn_path_stable
 
-echo "evaluating ${root_dir}"
-
 python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${root_dir}/enhanced --ckpt ${root_dir}/epoch=*pesq*.ckpt
-
 python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${root_dir}/enhanced
 
 # WhiSQA calculation
 cd $EXP/WhiSQA/
-python get_score_batch.py --model multi --output_csv ${root_dir}/enhanced/_results_whisqa.csv --output_txt ${root_dir}/enhanced/_avg_results_whisqa.txt ${root_dir}/enhanced
+python get_score_batch.py --model_type multi --output_csv ${root_dir}/enhanced/_results_whisqa.csv --output_txt ${root_dir}/enhanced/_avg_results_whisqa.txt ${root_dir}/enhanced
 
 # DNSMOS calculation
 cd $EXP/DNS-Challenge/DNSMOS/
