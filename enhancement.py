@@ -134,18 +134,21 @@ if __name__ == "__main__":
             or model.sde.__class__.__name__ == "SBNNSDE"
         ):
             model = model.to(args.device)
+            model.sde.N = args.N
             sampler_type = "ode" if args.sampler_type == "pc" else args.sampler_type
             sampler = model.get_sb_sampler(
                 sde=model.sde, y=Y.cuda(), sampler_type=sampler_type
             )
         elif model.sde.__class__.__name__ == "ICFM":
             model = model.to(args.device)
+            model.sde.N = args.N
             sampler_type = "ode" if args.sampler_type == "pc" else args.sampler_type
             sampler = model.get_cfm_sampler(
                 sde=model.sde, y=Y.cuda(), sampler_type=sampler_type
             )
         elif model.sde.__class__.__name__ == "NNPath":
             model = model.to(args.device)
+            model.sde.N = args.N
             sampler = model.get_nnpath_sampler(
                 model.sde,
                 Y.cuda(),

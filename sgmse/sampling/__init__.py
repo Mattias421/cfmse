@@ -250,6 +250,7 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
         with torch.no_grad():
             xt = y
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
+            print(time_steps)
 
             # Initial values
             time_prev = time_steps[0] * torch.ones(xt.shape[0], device=xt.device)
@@ -363,6 +364,7 @@ def get_cfm_sampler(
         with torch.no_grad():
             xt = y
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
+            print(time_steps)
 
             for t in time_steps[1:]:
                 # Prepare time steps for the whole batch

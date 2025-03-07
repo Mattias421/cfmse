@@ -1,10 +1,10 @@
 export OMP_NUM_THREADS=8
 root_dir=$EXP/cfmse/logs/nn_path_stable
-root_dir=$EXP/cfmse/logs/2k381hhl
+root_dir=$EXP/cfmse/logs/icfm_default/
 
 echo "evaluating ${root_dir}"
 
-python enhancement.py --test_dir $DATA/VB+DMD/valid/noisy --enhanced_dir ${root_dir}/enhanced --ckpt ${root_dir}/epoch=*pesq*.ckpt
+python enhancement.py --test_dir $DATA/VB+DMD/valid/noisy --enhanced_dir ${root_dir}/enhanced --ckpt ${root_dir}/epoch=*pesq*.ckpt --N 5
 
 python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${root_dir}/enhanced
 
