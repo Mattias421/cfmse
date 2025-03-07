@@ -16,6 +16,9 @@ from sgmse.util.other import pad_spec, si_sdr
 from pesq import pesq
 from pystoi import stoi
 from torch_pesq import PesqLoss
+import torchaudio
+import whisper
+from sgmse.optimal_transport import OTPlanSamplerComplex
 
 
 class ScoreModel(pl.LightningModule):
@@ -85,7 +88,30 @@ class ScoreModel(pl.LightningModule):
             help="The balance between the time-frequency and time-domain losses.",
         )
         parser.add_argument(
+            "--ssr_weight",
+            type=float,
+            default=0.0,
+            help="The weight of the ssr loss",
+        )
+        parser.add_argument(
+            "--ssr_layer",
+            type=int,
+            default=12,
+            help="Layer of ssr to use (1-12)",
+        )
+        parser.add_argument(
+            "--ssr_model_name",
+            type=str,
+            default="hubert",
+            help="Which SSR model to use for representation loss (hubert, wavlm, whisper)",
+        )
+        parser.add_argument(
             "--sr", type=int, default=16000, help="The sample rate of the audio files."
+        )
+        parser.add_argument(
+            "--ot_minibatch",
+            action="store_true",
+            help="Whether to use ot minibatches or not (for unpaired training)",
         )
         return parser
 
@@ -106,9 +132,13 @@ class ScoreModel(pl.LightningModule):
         sigma_data=0.1,
         l1_weight=0.001,
         pesq_weight=0.0,
+        ssr_model_name="hubert",
+        ssr_weight=0.0,
+        ssr_layer=12,
         sr=16000,
         use_marginal_path_network=False,
         data_module_cls=None,
+        ot_minibatch=False,
         **kwargs,
     ):
         """
@@ -140,6 +170,9 @@ class ScoreModel(pl.LightningModule):
         self.loss_weighting = loss_weighting
         self.l1_weight = l1_weight
         self.pesq_weight = pesq_weight
+        self.ssr_weight = ssr_weight
+        self.ssr_layer = ssr_layer
+        self.ssr_model_name = ssr_model_name
         self.network_scaling = network_scaling
         self.c_in = c_in
         self.c_out = c_out
@@ -147,11 +180,34 @@ class ScoreModel(pl.LightningModule):
         self.sigma_data = sigma_data
         self.num_eval_files = num_eval_files
         self.sr = sr
+        self.ot_minibatch = ot_minibatch
         # Initialize PESQ loss if pesq_weight > 0.0
         if pesq_weight > 0.0:
             self.pesq_loss = PesqLoss(1.0, sample_rate=sr).eval()
             for param in self.pesq_loss.parameters():
                 param.requires_grad = False
+
+        if ssr_weight > 0.0:
+            if ssr_model_name == "hubert":
+                self.ssr_model = torchaudio.pipelines.HUBERT_BASE.get_model()
+            elif ssr_model_name == "wavlm":
+                self.ssr_model = torchaudio.pipelines.WAVLM_BASE.get_model()
+            elif ssr_model_name == "whisper":
+                self.ssr_model = whisper.load_model("base.en")
+                # self.ssr_model.register_buffer("alignment_heads", self.ssr_model.all_heads.to_sparse(), persistent=False)
+                alignment_heads_dense = self.ssr_model.get_buffer(
+                    "alignment_heads"
+                ).to_dense()
+                self.ssr_model.register_buffer(
+                    "alignment_heads", alignment_heads_dense, persistent=False
+                )
+
+            for param in self.ssr_model.parameters():
+                param.requires_grad = False
+
+        if ot_minibatch:
+            self.ot_sampler = OTPlanSamplerComplex(method="exact")
+
         self.save_hyperparameters(ignore=["no_wandb"])
         self.data_module = data_module_cls(**kwargs, gpu=kwargs.get("gpus", 0) > 0)
 
@@ -177,7 +233,9 @@ class ScoreModel(pl.LightningModule):
             self.sde.__class__.__name__ == "SBNNSDE"
             or self.sde.__class__.__name__ == "NNPath"
         ):
+            print("Loading NN marginal path networks checkpoint")
             self.sde.marginal_path_nn.load_state_dict(checkpoint["marginal_path_nn"])
+            print(next(self.sde.marginal_path_nn.named_parameters()))
             self.sde.marginal_path_nn = self.sde.marginal_path_nn.to(self.device)
 
     def on_save_checkpoint(self, checkpoint):
@@ -187,6 +245,8 @@ class ScoreModel(pl.LightningModule):
             self.sde.__class__.__name__ == "SBNNSDE"
             or self.sde.__class__.__name__ == "NNPath"
         ):
+            print("saving marginal_path_nn state_dict")
+            print(next(self.sde.marginal_path_nn.named_parameters()))
             checkpoint["marginal_path_nn"] = self.sde.marginal_path_nn.state_dict()
 
     def train(self, mode, no_ema=False):
@@ -345,6 +405,42 @@ class ScoreModel(pl.LightningModule):
             else:
                 loss = losses_tf + self.l1_weight * losses_l1
 
+            if self.ssr_weight > 0.0:
+                if len(vt_td.shape) != 2:
+                    vt_td = vt_td[None]
+                    ut_td = ut_td[None]
+
+                if self.ssr_model_name in ["hubert", "wavlm"]:
+                    vt_ssr, _ = self.ssr_model.extract_features(
+                        vt_td, num_layers=self.ssr_layer
+                    )
+                    vt_ssr = vt_ssr[-1]
+                    ut_ssr, _ = self.ssr_model.extract_features(
+                        ut_td, num_layers=self.ssr_layer
+                    )
+                    ut_ssr = ut_ssr[-1]
+
+                elif self.ssr_model_name in ["whisper"]:
+                    vt_mel = whisper.log_mel_spectrogram(
+                        whisper.pad_or_trim(vt_td), n_mels=self.ssr_model.dims.n_mels
+                    )
+                    ut_mel = whisper.log_mel_spectrogram(
+                        whisper.pad_or_trim(ut_td), n_mels=self.ssr_model.dims.n_mels
+                    )
+
+                    vt_ssr = self.ssr_model.encoder(vt_mel)
+                    ut_ssr = self.ssr_model.encoder(ut_mel)
+
+                B, F, T = vt_ssr.shape
+
+                # losses in the ssr domain
+                losses_ssr = (1 / (F * T)) * torch.square(torch.abs(vt_ssr - ut_ssr))
+                losses_ssr = torch.mean(
+                    0.5 * torch.sum(losses_ssr.reshape(losses_ssr.shape[0], -1), dim=-1)
+                )
+
+                loss = loss + self.ssr_weight * losses_ssr
+
         else:
             raise ValueError("Invalid loss type: {}".format(self.loss_type))
 
@@ -352,6 +448,10 @@ class ScoreModel(pl.LightningModule):
 
     def _step(self, batch, batch_idx):
         x, y = batch
+
+        if self.ot_minibatch:
+            x, y = self.ot_sampler.sample_plan(x, y)
+
         t = (
             torch.rand(x.shape[0], device=x.device) * (self.sde.T - self.t_eps)
             + self.t_eps

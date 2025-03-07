@@ -538,14 +538,14 @@ class ICFM(SDE):
         parser.add_argument(
             "--sigma",
             type=float,
-            default=0.05,
-            help="The minimum sigma to use. 0.05 by default.",
+            default=0.1,
+            help="The minimum sigma to use. 0.1 by default.",
         )
         parser.add_argument(
             "--N",
             type=int,
             default=50,
-            help="The number of timesteps in the SDE discretization. 30 by default",
+            help="The number of timesteps in the SDE discretization. 50 by default",
         )
         parser.add_argument(
             "--sampler_type",
@@ -621,7 +621,7 @@ class NNPath(SDE):
     def add_argparse_args(parser):
         return parser
 
-    def __init__(self, N=30, **ignored_kwargs):
+    def __init__(self, N=50, **ignored_kwargs):
         """Construct an indepentent flow matcher.
 
         Note that the "steady-state mean" `y` is not provided at construction, but must rather be given as an argument
