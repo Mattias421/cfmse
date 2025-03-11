@@ -1,25 +1,23 @@
 #!/bin/bash
-#SBATCH --partition=gpu-h100,gpu
-#SBATCH --qos=gpu
+#SBATCH --partition=dcs-gpu
+#SBATCH --account=dcs-res
 #SBATCH --gres=gpu:1
-#SBATCH --time=50:00:00
+#SBATCH --time=80:00:00
 #SBATCH --nodes=1
 #SBATCH --ntasks=1
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=4
 #SBATCH --mem-per-cpu=32G
-#SBATCH --output=logs/slurm/%x.log
-
-module load Anaconda3/2022.05
-module load GCCcore/12.3.0
-module load cuDNN/8.9.2.26-CUDA-12.1.1
+#SBATCH --output=logs/slurm/%x-%a.out
+#SBATCH --array=0
 
 
+module load Anaconda3/2019.07
+module load CUDA/12.4.0 
+module load GCCcore/10.3.0
 source activate cfmse
 
-root_dir=$EXP/cfmse/logs/nn_path/nn_path_stable
-
-echo "evaluating ${root_dir}"
+root_dir=$EXP/cfmse/logs/nn_path_stable
 
 python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${root_dir}/enhanced --ckpt ${root_dir}/epoch=*pesq*.ckpt
 python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${root_dir}/enhanced
@@ -31,7 +29,22 @@ python get_score_batch.py --model_type multi --output_csv ${root_dir}/enhanced/_
 # DNSMOS calculation
 cd $EXP/DNS-Challenge/DNSMOS/
 python dnsmos_local.py -t ${root_dir}/enhanced -o ${root_dir}/enhanced/_results_dnsmos.csv
-awk -F',' '{sum+=$12; ++n} END { print "DNSMOS: " sum/(n-1) }' < ${root_dir}/enhanced/_results_dnsmos.csv > ${root_dir}/enhanced/_avg_results_dnsmos.txt
+awk -F',' '{sum+=$12; ++n} END { print "DNSMOS: " sum/(n-1) }' < ${root_dir}/enhanced/_results_dnsmos.csv > ${root_dir}/enhanced/_results_avg_dnsmos.txt
 
-# python dnsmos_local.py -t ${root_dir}/enhanced -o ${root_dir}/enhanced/_results_pdnsmos.csv -p
-# awk -F',' '{sum+=$12; ++n} END { print "DNSMOS: " sum/(n-1) }' < ${root_dir}/enhanced/_results_pdnsmos.csv > ${root_dir}/enhanced/_avg_results_pdnsmos.txt
+# stanage
+##!/bin/bash
+##SBATCH --partition=gpu-h100,gpu
+##SBATCH --qos=gpu
+##SBATCH --gres=gpu:1
+##SBATCH --time=50:00:00
+##SBATCH --nodes=1
+##SBATCH --ntasks=1
+##SBATCH --tasks-per-node=1
+##SBATCH --cpus-per-task=4
+##SBATCH --mem-per-cpu=32G
+##SBATCH --output=logs/slurm/%x.log
+##SBATCH --array=1-16
+#
+#module load Anaconda3/2022.05
+#module load cuDNN/8.9.2.26-CUDA-12.1.1
+#module load GCCcore/12.3.0
