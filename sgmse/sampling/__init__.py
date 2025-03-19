@@ -244,8 +244,6 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
 
     def ode_sampler():
         """The SB-ODE sampler function."""
-        # alpha_t_log = []
-        # sigma_t_log = []
 
         with torch.no_grad():
             xt = y
@@ -258,6 +256,7 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
             )
 
             for t in time_steps[1:]:
+                print(t)
                 # Prepare time steps for the whole batch
                 time = t * torch.ones(xt.shape[0], device=xt.device)
 
@@ -311,12 +310,6 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
                 sigma_prev = sigma_t
                 sigma_bar_prev = sigma_bart
 
-            #     alpha_t_log.append(alpha_t.item())
-            #     sigma_t_log.append(sigma_t.item())
-            #
-            # import matplotlib.pyplot as plt
-            # plt.plot(sigma_t_log)
-            # plt.show()
             return xt, n_steps
 
     def icfm_ode_sampler():
@@ -380,59 +373,3 @@ def get_cfm_sampler(
             return xt, n_steps
 
     return icfm_ode_sampler
-
-
-def get_nnpath_sampler(
-    sde,
-    model,
-    y,
-    eps=1e-4,
-    n_steps=50,
-    sampler_type="ode",
-    device="cuda",
-    loss="data_prediction",
-    **kwargs,
-):
-    def ode_sampler():
-        WA = []
-        WB = []
-        with torch.no_grad():
-            xt = y
-            time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
-
-            for t in time_steps[1:]:
-                # Prepare time steps for the whole batch
-                time = t * torch.ones(xt.shape[0], device=xt.device)
-
-                # Run DNN
-                with torch.enable_grad():
-                    time.requires_grad_(True)
-                    weight_a, weight_b, _ = sde.marginal_path_nn(time)
-
-                    WA.append(weight_a.item())
-                    WB.append(weight_b.item())
-
-                    da = torch.autograd.grad(weight_a, time, retain_graph=True)[0]
-                    db = torch.autograd.grad(weight_b, time)[0]
-
-                time.requires_grad_(False)
-
-                current_estimate = model(xt, y, time)
-
-                if loss == "data_prediction":
-                    vt = da * current_estimate + db * y
-                else:
-                    vt = current_estimate
-
-                xt = xt + vt * 1 / n_steps
-
-            import matplotlib.pyplot as plt
-
-            plt.plot(WA)
-            plt.show()
-            plt.clf()
-            plt.plot(WB)
-            plt.show()
-            return xt, n_steps
-
-    return ode_sampler
