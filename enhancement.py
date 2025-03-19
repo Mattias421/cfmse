@@ -1,3 +1,4 @@
+print("in enhance")
 import glob
 import torch
 from tqdm import tqdm
@@ -10,13 +11,17 @@ from librosa import resample
 
 # Set CUDA architecture list
 from sgmse.util.other import set_torch_cuda_arch_list
-from sgmse.model import ScoreModel
+#from sgmse.model import ScoreModel
+print("in enhance")
 from sgmse.util.other import pad_spec
 
-set_torch_cuda_arch_list()
+#set_torch_cuda_arch_list()
+
+print("in enhance")
 
 
 if __name__ == "__main__":
+    print("in enhance")
     parser = ArgumentParser()
     parser.add_argument(
         "--test_dir", type=str, required=True, help="Directory containing the test data"
@@ -94,6 +99,7 @@ if __name__ == "__main__":
 
     # Enhance files
     for noisy_file in tqdm(noisy_files):
+        print(noisy_file)
         filename = noisy_file.replace(args.test_dir, "")
         filename = filename[1:] if filename.startswith("/") else filename
 
@@ -128,6 +134,7 @@ if __name__ == "__main__":
             elif args.sampler_type == "ode":
                 sampler = model.get_ode_sampler(Y.to(args.device), N=args.N)
             else:
+                print(f"{args.sampler_type}")
                 raise ValueError(f"Sampler type {args.sampler_type} not supported")
         elif (
             model.sde.__class__.__name__ == "SBVESDE"

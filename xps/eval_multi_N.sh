@@ -18,6 +18,8 @@ module load GCCcore/10.3.0
 source activate cfmse
 
 root_dir=$EXP/cfmse/logs/icfm_fm_sweep/icfm_sigma=0.1_l1_weight=0.001/6foffv3i
+root_dir=$EXP/cfmse/logs/icfm_sigma_sweep/46pucckl
+root_dir=$EXP/cfmse/logs/sbve_no_pesq
 N=$SLURM_ARRAY_TASK_ID
 
 python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${root_dir}/enhanced_${N} --ckpt ${root_dir}/epoch=*pesq*.ckpt --N $N
@@ -26,16 +28,12 @@ python calc_metrics.py --clean_dir $DATA/VB+DMD/test/clean --noisy_dir $DATA/VB+
 
 # WhiSQA calculation
 cd $EXP/WhiSQA/
-python get_score_batch.py --model_type multi --output_csv
-${root_dir}/enhanced_${N}/_results_whisqa.csv --output_txt
-${root_dir}/enhanced_${N}/_avg_results_whisqa.txt ${root_dir}/enhanced_${N}
+python get_score_batch.py --model_type multi --output_csv ${root_dir}/enhanced_${N}/_results_whisqa.csv --output_txt ${root_dir}/enhanced_${N}/_avg_results_whisqa.txt ${root_dir}/enhanced_${N}
 
 # DNSMOS calculation
 cd $EXP/DNS-Challenge/DNSMOS/
-python dnsmos_local.py -t ${root_dir}/enhanced_${N} -o
-${root_dir}/enhanced_${N}/_results_dnsmos.csv
-awk -F',' '{sum+=$12; ++n} END { print "DNSMOS: " sum/(n-1) }'
-< ${root_dir}/enhanced_${N}/_results_dnsmos.csv > ${root_dir}/enhanced_${N}/_results_avg_dnsmos.txt
+python dnsmos_local.py -t ${root_dir}/enhanced_${N} -o ${root_dir}/enhanced_${N}/_results_dnsmos.csv
+awk -F',' '{sum+=$12; ++n} END { print "DNSMOS: " sum/(n-1) }' < ${root_dir}/enhanced_${N}/_results_dnsmos.csv > ${root_dir}/enhanced_${N}/_results_avg_dnsmos.txt
 
 # stanage
 ##!/bin/bash
