@@ -229,32 +229,10 @@ class ScoreModel(pl.LightningModule):
             self._error_loading_ema = True
             warnings.warn("EMA state_dict not found in checkpoint!")
 
-        if (
-            self.sde.__class__.__name__ == "SBNNSDE"
-            or self.sde.__class__.__name__ == "NNPath"
-        ):
-            print("Loading NN marginal path networks checkpoint")
-            self.sde.marginal_path_nn.load_state_dict(checkpoint["marginal_path_nn"])
-            print(next(self.sde.marginal_path_nn.named_parameters()))
-            self.sde.marginal_path_nn = self.sde.marginal_path_nn.to(self.device)
-
     def on_save_checkpoint(self, checkpoint):
         checkpoint["ema"] = self.ema.state_dict()
 
-        if (
-            self.sde.__class__.__name__ == "SBNNSDE"
-            or self.sde.__class__.__name__ == "NNPath"
-        ):
-            print("saving marginal_path_nn state_dict")
-            print(next(self.sde.marginal_path_nn.named_parameters()))
-            checkpoint["marginal_path_nn"] = self.sde.marginal_path_nn.state_dict()
-
     def train(self, mode, no_ema=False):
-        if (
-            self.sde.__class__.__name__ == "SBNNSDE"
-            or self.sde.__class__.__name__ == "NNPath"
-        ):
-            self.sde.marginal_path_nn.to(self.device)
         res = super().train(
             mode
         )  # call the standard `train` method with the given mode
@@ -355,21 +333,6 @@ class ScoreModel(pl.LightningModule):
                 )
             else:
                 loss = losses_tf + self.l1_weight * losses_l1
-
-            if self.sde.__class__.__name__ == "NNPath":
-                weight_a1, weight_b1, _ = self.sde.marginal_path_nn(torch.ones_like(t))
-                loss_weight1 = torch.mean(
-                    0.5 * torch.square(weight_a1 - 0)
-                ) + torch.mean(0.5 * torch.square(weight_b1 - 1))
-
-                weight_a0, weight_b0, _ = self.sde.marginal_path_nn(
-                    torch.zeros_like(t) + 1e-8
-                )
-                loss_weight0 = torch.mean(
-                    0.5 * torch.square(weight_a0 - 1)
-                ) + torch.mean(0.5 * torch.square(weight_b0 - 0))
-
-                loss = loss + loss_weight0 + loss_weight1
 
         elif self.loss_type == "flow_matching":
             vt = forward_out
@@ -806,10 +769,7 @@ class ScoreModel(pl.LightningModule):
                     "Invalid sampler type for SGMSE sampling: {}".format(sampler_type)
                 )
         # Schrödinger bridge sampling with VE SDE
-        elif (
-            self.sde.__class__.__name__ == "SBVESDE"
-            or self.sde.__class__.__name__ == "SBNNSDE"
-        ):
+        elif self.sde.__class__.__name__ == "SBVESDE":
             sampler = self.get_sb_sampler(
                 sde=self.sde, y=Y.cuda(), sampler_type=self.sde.sampler_type
             )
@@ -819,14 +779,6 @@ class ScoreModel(pl.LightningModule):
                 Y.cuda(),
                 N=N,
                 sampler_type=self.sde.sampler_type,
-                loss=self.loss_type,
-                **kwargs,
-            )
-        elif self.sde.__class__.__name__ == "NNPath":
-            sampler = self.get_nnpath_sampler(
-                self.sde,
-                Y.cuda(),
-                N=N,
                 loss=self.loss_type,
                 **kwargs,
             )

@@ -101,18 +101,25 @@ class Specs(Dataset):
             # pad audio if the length T is smaller than num_frames
             x = F.pad(x, (pad // 2, pad // 2 + (pad % 2)), mode="constant")
 
-        current_len = y.size(-1)
-        pad = max(target_len - current_len, 0)
-        if pad == 0:
-            # extract random part of the audio file
-            if self.shuffle_spec:
-                start = int(np.random.uniform(0, current_len - target_len))
+        if self.unpaired:
+            current_len = y.size(-1)
+            pad = max(target_len - current_len, 0)
+            if pad == 0:
+                # extract random part of the audio file
+                if self.shuffle_spec:
+                    start = int(np.random.uniform(0, current_len - target_len))
+                else:
+                    start = int((current_len - target_len) / 2)
+                y = y[..., start : start + target_len]
             else:
-                start = int((current_len - target_len) / 2)
-            y = y[..., start : start + target_len]
+                # pad audio if the length T is smaller than num_frames
+                y = F.pad(y, (pad // 2, pad // 2 + (pad % 2)), mode="constant")
         else:
-            # pad audio if the length T is smaller than num_frames
-            y = F.pad(y, (pad // 2, pad // 2 + (pad % 2)), mode="constant")
+            if pad == 0:
+                y = y[..., start : start + target_len]
+            else:
+                # pad audio if the length T is smaller than num_frames
+                y = F.pad(y, (pad // 2, pad // 2 + (pad % 2)), mode="constant")
 
         # normalize w.r.t to the noisy or the clean signal or not at all
         # to ensure same clean signal power in x and y.

@@ -1,4 +1,3 @@
-print("in enhance")
 import glob
 import torch
 from tqdm import tqdm
@@ -11,17 +10,13 @@ from librosa import resample
 
 # Set CUDA architecture list
 from sgmse.util.other import set_torch_cuda_arch_list
-#from sgmse.model import ScoreModel
-print("in enhance")
+from sgmse.model import ScoreModel
 from sgmse.util.other import pad_spec
 
-#set_torch_cuda_arch_list()
-
-print("in enhance")
+set_torch_cuda_arch_list()
 
 
 if __name__ == "__main__":
-    print("in enhance")
     parser = ArgumentParser()
     parser.add_argument(
         "--test_dir", type=str, required=True, help="Directory containing the test data"
@@ -72,6 +67,13 @@ if __name__ == "__main__":
     model.t_eps = args.t_eps
     model.eval()
 
+    if (
+        model.sde.__class__.__name__ == "SBNNSDE"
+        or model.sde.__class__.__name__ == "NNPath"
+    ):
+        print("putting model on device")
+        model.sde.marginal_path_nn = model.sde.marginal_path_nn.to(args.device)
+
     # Get list of noisy files
     noisy_files = []
     noisy_files += sorted(glob.glob(join(args.test_dir, "*.wav")))
@@ -92,7 +94,6 @@ if __name__ == "__main__":
 
     # Enhance files
     for noisy_file in tqdm(noisy_files):
-        print(noisy_file)
         filename = noisy_file.replace(args.test_dir, "")
         filename = filename[1:] if filename.startswith("/") else filename
 
@@ -127,9 +128,11 @@ if __name__ == "__main__":
             elif args.sampler_type == "ode":
                 sampler = model.get_ode_sampler(Y.to(args.device), N=args.N)
             else:
-                print(f"{args.sampler_type}")
                 raise ValueError(f"Sampler type {args.sampler_type} not supported")
-        elif model.sde.__class__.__name__ == "SBVESDE":
+        elif (
+            model.sde.__class__.__name__ == "SBVESDE"
+            or model.sde.__class__.__name__ == "SBNNSDE"
+        ):
             model = model.to(args.device)
             model.sde.N = args.N
             sampler_type = "ode" if args.sampler_type == "pc" else args.sampler_type
@@ -142,6 +145,14 @@ if __name__ == "__main__":
             sampler_type = "ode" if args.sampler_type == "pc" else args.sampler_type
             sampler = model.get_cfm_sampler(
                 sde=model.sde, y=Y.cuda(), sampler_type=sampler_type
+            )
+        elif model.sde.__class__.__name__ == "NNPath":
+            model = model.to(args.device)
+            model.sde.N = args.N
+            sampler = model.get_nnpath_sampler(
+                model.sde,
+                Y.cuda(),
+                loss=model.loss_type,
             )
         else:
             raise ValueError(f"SDE {model.sde.__class__.__name__} not supported")
