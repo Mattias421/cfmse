@@ -330,12 +330,23 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
 
             return xt, n_steps
 
+    def dp_sampler():
+        with torch.no_grad():
+            time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
+            t = time_steps[1]
+            time = t * torch.ones(y.shape[0], device=y.device)
+            current_estimate = model(y, y, time)
+
+            return current_estimate, 0
+
     if sampler_type == "sde":
         return sde_sampler
     elif sampler_type == "ode":
         return ode_sampler
     elif sampler_type == "icfm_ode":
         return icfm_ode_sampler
+    elif sampler_type == "dp":
+        return dp_sampler
     else:
         raise ValueError("Invalid type. Choose 'ode' or 'sde', or 'icfm_ode'.")
 
@@ -372,4 +383,22 @@ def get_cfm_sampler(
 
             return xt, n_steps
 
-    return icfm_ode_sampler
+    def dp_sampler():
+        with torch.no_grad():
+            time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
+            t = time_steps[1]
+            time = t * torch.ones(y.shape[0], device=y.device)
+            current_estimate = model(y, y, time)
+
+            if loss == "data_prediction":
+                return current_estimate, 0
+            else:
+                # estimate is x_0 - y so we add y
+                return current_estimate + y, 0
+
+    if sampler_type == "ode":
+        return icfm_ode_sampler
+    elif sampler_type == "dp":
+        return dp_sampler
+    else:
+        raise ValueError("Invalid type. Choose 'ode' or 'sde', or 'icfm_ode'.")
