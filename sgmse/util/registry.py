@@ -15,6 +15,7 @@ class Registry:
         self._registry = {}
 
     def register(self, name: str) -> Callable:
+        print("register ", name)
         def inner_wrapper(wrapped_class) -> Callable:
             if name in self._registry:
                 warnings.warn(

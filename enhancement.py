@@ -11,7 +11,7 @@ from librosa import resample
 
 # Set CUDA architecture list
 from sgmse.util.other import set_torch_cuda_arch_list
-#from sgmse.model import ScoreModel
+from sgmse.model import ScoreModel
 print("in enhance")
 from sgmse.util.other import pad_spec
 
