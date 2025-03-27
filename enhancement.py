@@ -1,4 +1,3 @@
-print("in enhance")
 import glob
 import torch
 from tqdm import tqdm
@@ -10,18 +9,14 @@ from argparse import ArgumentParser
 from librosa import resample
 
 # Set CUDA architecture list
-from sgmse.util.other import set_torch_cuda_arch_list
 from sgmse.model import ScoreModel
-print("in enhance")
+
 from sgmse.util.other import pad_spec
 
-#set_torch_cuda_arch_list()
-
-print("in enhance")
+# set_torch_cuda_arch_list()
 
 
 if __name__ == "__main__":
-    print("in enhance")
     parser = ArgumentParser()
     parser.add_argument(
         "--test_dir", type=str, required=True, help="Directory containing the test data"
@@ -92,7 +87,6 @@ if __name__ == "__main__":
 
     # Enhance files
     for noisy_file in tqdm(noisy_files):
-        print(noisy_file)
         filename = noisy_file.replace(args.test_dir, "")
         filename = filename[1:] if filename.startswith("/") else filename
 
