@@ -333,8 +333,7 @@ def get_sb_sampler(sde, model, y, eps=1e-4, n_steps=50, sampler_type="ode", **kw
     def dp_sampler():
         with torch.no_grad():
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
-            # TODO evaluate v1 vs v2 dp sampler
-            t = 1 - eps
+            t = 1
             time = t * torch.ones(y.shape[0], device=y.device)
             current_estimate = model(y, y, time)
 
@@ -387,8 +386,7 @@ def get_cfm_sampler(
     def dp_sampler():
         with torch.no_grad():
             time_steps = torch.linspace(sde.T, eps, sde.N + 1, device=y.device)
-            # TODO evaluate v1 vs v2 dp sampler
-            t = 1 - eps
+            t = 1
             time = t * torch.ones(y.shape[0], device=y.device)
             current_estimate = model(y, y, time)
 

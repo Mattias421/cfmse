@@ -20,6 +20,8 @@ source activate cfmse
 root_dir=$EXP/cfmse/logs/icfm_fm_sweep/icfm_sigma=0.1_l1_weight=0.001/6foffv3i
 root_dir=$EXP/cfmse/logs/icfm_sigma_sweep/46pucckl
 root_dir=$EXP/cfmse/logs/sbve_no_pesq
+root_dir=$EXP/cfmse/logs/sbve_stat_sigma_xt/7arzavsi
+root_dir=$EXP/cfmse/logs/sbve_stat_sigma_xt_k1/j39kz2aj
 N=$SLURM_ARRAY_TASK_ID
 
 python enhancement.py --test_dir $DATA/VB+DMD/test/noisy --enhanced_dir ${root_dir}/enhanced_${N} --ckpt ${root_dir}/epoch=*pesq*.ckpt --N $N
