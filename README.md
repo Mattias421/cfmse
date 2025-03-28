@@ -95,6 +95,12 @@ to calculate and output the instrumental metrics.
 
 Both scripts should receive the same `--test_dir` and `--enhanced_dir` parameters. The `--cpkt` parameter of `enhancement.py` should be the path to a trained model checkpoint, as stored by the logger in `logs/`.
 
+## New work: CFMSE
+To train an ICFM model with flow-matching loss, do `--backbone ncsnpp_v2 --sde icfm --sigma 0.1 --loss_type flow_matching`
+For the SB-SV, we build off the SB-VE, use the c parameter to set sigma e.g. `--backbone ncsnpp_v2 --sde sbve --loss_type data_prediction --variance_type stationary --c 0.1`
+For our novel one-step sampler, set `--sampler_type dp``
+To use the `xps/eval.sh` script, make sure you have WhiSQA and DNSMOS set up within the parent directory.
+
 ## Citations / References
 
 We kindly ask you to cite our papers in your publication when using any of our research or code:
