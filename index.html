@@ -380,176 +380,42 @@ Our work suggests that straighter time-independent probability paths improve gen
     </audio>
 </p>
 
-<p>
-    Noisy: <br>
-    <audio id="audioPlayerNoisy" controls>
-        <source id="audioSourceNoisy" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/noisy/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    Clean: <br>
-    <audio id="audioPlayerClean" controls>
-        <source id="audioSourceClean" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/clean/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    Conv-TasNet <span class="reference" data-ref="convtasnet"></span>:<br>
-    <audio id="audioPlayerConvTasNet" controls>
-        <source id="audioSourceConvTasNet" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/convtasnet/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    MetricGAN+ <span class="reference" data-ref="metricgan"></span>:<br>
-    <audio id="audioPlayerMetricGAN" controls>
-        <source id="audioSourceMetricGAN" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/metricgan/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    SE-MAMBA <span class="reference" data-ref="se-mamba"></span>:<br>
-    <audio id="audioPlayerSEMAMBA" controls>
-        <source id="audioSourceSEMAMBA" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/se_mamba/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    SGMSE+ <span class="reference" data-ref="sgmse"></span>:<br>
-    <audio id="audioPlayerSGMSE" controls>
-        <source id="audioSourceSGMSE" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/sgmse/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    M1:<br>
-    <audio id="audioPlayerM1" controls>
-        <source id="audioSourceM1" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m1/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    M2:<br>
-    <audio id="audioPlayerM2" controls>
-        <source id="audioSourceM2" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m2/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    M3:<br>
-    <audio id="audioPlayerM3" controls>
-        <source id="audioSourceM3" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m3/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    M4 (EDM2):<br>
-    <audio id="audioPlayerM4" controls>
-        <source id="audioSourceM4" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m4/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    M5:<br>
-    <audio id="audioPlayerM5" controls>
-        <source id="audioSourceM5" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m5/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    M6:<br>
-    <audio id="audioPlayerM6" controls>
-        <source id="audioSourceM6" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m6/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    M7:<br>
-    <audio id="audioPlayerM7" controls>
-        <source id="audioSourceM7" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m7/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio><br>
-
-    M8:<br>
-    <audio id="audioPlayerM8" controls>
-        <source id="audioSourceM8" src="https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m8/p257_258.wav" type="audio/wav">
-        Your browser does not support the audio element.
-    </audio>
-    
-</p>
-
 <script>
-    function playAudio() {
-        var audioPlayerNoisy = document.getElementById('audioPlayerNoisy');
-        var audioPlayerClean = document.getElementById('audioPlayerClean');
-        var audioPlayerConvTasNet = document.getElementById('audioPlayerConvTasNet');
-        var audioPlayerMetricGAN = document.getElementById('audioPlayerMetricGAN');
-        var audioPlayerSEMAMBA = document.getElementById('audioPlayerSEMAMBA');
-        var audioPlayerSGMSE = document.getElementById('audioPlayerSGMSE');
-        var audioPlayerM1 = document.getElementById('audioPlayerM1');
-        var audioPlayerM2 = document.getElementById('audioPlayerM2');
-        var audioPlayerM3 = document.getElementById('audioPlayerM3');
-        var audioPlayerM4 = document.getElementById('audioPlayerM4');
-        var audioPlayerM5 = document.getElementById('audioPlayerM5');
-        var audioPlayerM6 = document.getElementById('audioPlayerM6');
-        var audioPlayerM7 = document.getElementById('audioPlayerM7');
-        var audioPlayerM8 = document.getElementById('audioPlayerM8');
+    function updateAudioPlayers() {
+        // Get the selected filename (e.g., "p225_001") from the dropdown
+        const selectedFile = document.getElementById('audioSelect').value;
 
-        var audioSourceNoisy = document.getElementById('audioSourceNoisy');
-        var audioSourceClean = document.getElementById('audioSourceClean');
-        var audioSourceConvTasNet = document.getElementById('audioSourceConvTasNet');
-        var audioSourceMetricGAN = document.getElementById('audioSourceMetricGAN');
-        var audioSourceSEMAMBA = document.getElementById('audioSourceSEMAMBA');
-        var audioSourceSGMSE = document.getElementById('audioSourceSGMSE');
-        var audioSourceM1 = document.getElementById('audioSourceM1');
-        var audioSourceM2 = document.getElementById('audioSourceM2');
-        var audioSourceM3 = document.getElementById('audioSourceM3');
-        var audioSourceM4 = document.getElementById('audioSourceM4');
-        var audioSourceM5 = document.getElementById('audioSourceM5');
-        var audioSourceM6 = document.getElementById('audioSourceM6');
-        var audioSourceM7 = document.getElementById('audioSourceM7');
-        var audioSourceM8 = document.getElementById('audioSourceM8');
+        // The base URL for all your audio files
+        const baseUrl = "https://mattias421.github.io/cfmse/cfmse_samples/";
 
-        var selectedAudio = document.getElementById('audioSelect').value;
+        // Get a list of ALL elements with the class 'dynamic-audio-player'
+        const audioPlayers = document.querySelectorAll('.dynamic-audio-player');
 
-        if (selectedAudio) {
-            // Set the source of the source elements, not the audio players
-            audioSourceNoisy.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/noisy/" + selectedAudio + ".wav";
-            audioPlayerNoisy.load(); // Load the selected audio file using the audio player
+        // Loop through each audio player
+        audioPlayers.forEach(player => {
+            // Get the model name (e.g., "icfm_ddp") from the 'data-model' attribute
+            const modelName = player.dataset.model;
 
-            audioSourceClean.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/clean/" + selectedAudio + ".wav";
-            audioPlayerClean.load(); // Load the selected audio file using the audio player
+            // Find the <source> element inside this specific player
+            const sourceElement = player.querySelector('source');
 
-            audioSourceConvTasNet.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/convtasnet/" + selectedAudio + ".wav";
-            audioPlayerConvTasNet.load(); // Load the selected audio file using the audio player
+            if (modelName && sourceElement) {
+                // Construct the new URL for the audio file
+                const newSrc = `${baseUrl}${modelName}/${selectedFile}.wav`;
 
-            audioSourceMetricGAN.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/metricgan/" + selectedAudio + ".wav";
-            audioPlayerMetricGAN.load(); // Load the selected audio file using the audio player
+                // Update the 'src' attribute of the source element
+                sourceElement.src = newSrc;
 
-            audioSourceSEMAMBA.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/se_mamba/" + selectedAudio + ".wav";
-            audioPlayerSEMAMBA.load(); // Load the selected audio file using the audio player
-
-            audioSourceSGMSE.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/sgmse/" + selectedAudio + ".wav";
-            audioPlayerSGMSE.load(); // Load the selected audio file using the audio player
-
-            audioSourceM1.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m1/" + selectedAudio + ".wav";
-            audioPlayerM1.load(); // Load the selected audio file using the audio player
-
-            audioSourceM2.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m2/" + selectedAudio + ".wav";
-            audioPlayerM2.load(); // Load the selected audio file using the audio player
-
-            audioSourceM3.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m3/" + selectedAudio + ".wav";
-            audioPlayerM3.load(); // Load the selected audio file using the audio player
-
-            audioSourceM4.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m4/" + selectedAudio + ".wav";
-            audioPlayerM4.load(); // Load the selected audio file using the audio player
-
-            audioSourceM5.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m5/" + selectedAudio + ".wav";
-            audioPlayerM5.load(); // Load the selected audio file using the audio player
-
-            audioSourceM6.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m6/" + selectedAudio + ".wav";
-            audioPlayerM6.load(); // Load the selected audio file using the audio player
-
-            audioSourceM7.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m7/" + selectedAudio + ".wav";
-            audioPlayerM7.load(); // Load the selected audio file using the audio player
-
-            audioSourceM8.src = "https://www2.informatik.uni-hamburg.de/sp/audio/publications/icassp2025_gense/m8/" + selectedAudio + ".wav";
-            audioPlayerM8.load(); // Load the selected audio file using the audio player
-
-            // This will ensure that the audio players are updating their children source elements
-            // and reloading them
-        }
+                // Tell the audio player to load the new source file
+                player.load();
+            }
+        });
     }
+
+    // Optional: Update players on initial page load to match the first dropdown item
+    document.addEventListener('DOMContentLoaded', updateAudioPlayers);
 </script>
+
 <br>
 
 
