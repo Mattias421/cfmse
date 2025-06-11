@@ -1,69 +1,57 @@
-# _config.yml
+# Welcome to Jekyll!
+#
+# This config file is meant for settings that affect your whole blog, values
+# which you are expected to set up once and rarely edit after that. If you find
+# yourself editing this file very often, consider using Jekyll's data files
+# feature for the data you need to update frequently.
+#
+# For technical reasons, this file is *NOT* reloaded automatically when you use
+# 'bundle exec jekyll serve'. If you change this file, please restart the server process.
+#
+# If you need help with YAML syntax, here are some quick references for you:
+# https://learn-the-web.algonquindesign.ca/topics/markdown-yaml-cheat-sheet/#yaml
+# https://learnxinyminutes.com/docs/yaml/
+#
+# Site settings
+# These are used to personalize your new site. If you look in the HTML files,
+# you will see them accessed via {{ site.title }}, {{ site.email }}, and so on.
+# You can create any custom variable you would like, and they will be accessible
+# in the templates via {{ site.myvariable }}.
 
-# ----------------- #
-#  Site Settings    #
-# ----------------- #
+title: Flowing Straighter with Conditional Flow Matching for Accurate Speech Enhancement
+logo: uos_cdt_ukri_square.pdf
+email: # your email address
+description: >- # this means to ignore newlines until "baseurl:"
+  Flowing Straighter with Conditional Flow Matching for Accurate Speech Enhancement
+domain: Mattias421.github.io
+baseurl: "/cfmse/" # the subpath of your site, e.g. /blog
+url: "https://Mattias421.github.io" # the base hostname & protocol for your site, e.g. http://example.com
+twitter_username: # twitter username
+github_username: Mattias421 # github username
 
-# The title of your site. Appears in the browser tab and search results.
-title: CFMSE
-
-# The description of your site. Used by search engines.
-description: Flowing Straighter with Conditional Flow Matching for Accurate Speech Enhancement
-
-# The name of your GitHub repository (e.g., "my-awesome-project")
-# This is used to build the correct links and paths.
-# IMPORTANT: Replace <YOUR_REPOSITORY_NAME> with your repo's name.
-baseurl: "/cfmse"
-
-# The full URL to your site.
-# IMPORTANT: Replace <YOUR_USERNAME> and <YOUR_REPOSITORY_NAME>
-# This is used for generating sitemaps and SEO data.
-url: "https://Mattias421.github.io"
-
-# A path to an image that represents your project.
-# This is used for social media previews (e.g., when you share a link on Twitter).
-# The image should be in your repository.
-logo: uos_cd_ukri_square.pdf
-
-
-# ----------------- #
-#  Author & Socials #
-# ----------------- #
-# Used by some themes to display author information and social media links.
-
-author:
-  name: Mattias Cross
-  email: crossmattias@gmail.com
-
-# Your social media usernames, without the "@".
-# Used by the jekyll-seo-tag plugin and some themes.
-
-github:
-  username: Mattias421
-
-
-# ----------------- #
-#  Build Settings   #
-# ----------------- #
-
-# Select the theme for your site.
-theme: jekyll-theme-minimal
-
-# Specify the Markdown processor.
-markdown: kramdown
-
-# Add any Jekyll plugins here.
-# 'jekyll-seo-tag' is highly recommended for SEO.
-# 'jekyll-feed' creates an RSS feed.
-# These are supported by GitHub Pages.
+# Build settings
+# theme: minima
+remote_theme: pages-themes/minimal@v0.2.0
 plugins:
   - jekyll-feed
-  - jekyll-seo-tag
-  - jekyll-sitemap
+  - jekyll-remote-theme
 
-# Exclude these files from the final build.
-exclude:
-  - Gemfile
-  - Gemfile.lock
-  - README.md
-  - LICENSE.txt
+# Exclude from processing.
+# The following items will not be processed, by default.
+# Any item listed under the `exclude:` key here will be automatically added to
+# the internal "default list".
+#
+# Excluded items can be processed by explicitly listing the directories or
+# their entries' file path in the `include:` list.
+#
+# exclude:
+#   - .sass-cache/
+#   - .jekyll-cache/
+#   - gemfiles/
+#   - Gemfile
+#   - Gemfile.lock
+#   - node_modules/
+#   - vendor/bundle/
+#   - vendor/cache/
+#   - vendor/gems/
+#   - vendor/ruby/
