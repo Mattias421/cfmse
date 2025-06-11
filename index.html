@@ -142,14 +142,12 @@ Our work suggests that straighter time-independent probability paths improve gen
 </p>
 
 <h2>
-    Results on VB-DMD (matched)
+    Results on VB-DMD
 </h2>
 
 <p>
     We evaluate the performance of the proposed models on the VoiceBank-Demand (VB-DMD) dataset. The results are 
-    summarized in the table below. Models M1-M4 are based on score-based generative models for speech enhancement 
-    (SGMSE) <span class="reference" data-ref="sgmse"></span>, while M5-M8 are based on the Schrödinger bridge framework 
-    <span class="reference" data-ref="sbse"></span>.
+    summarized in the table below.
 </p>
 
 <div class="table-container">
@@ -282,7 +280,7 @@ Our work suggests that straighter time-independent probability paths improve gen
 </h2>
 
 <p>Select an audio file: &nbsp;&nbsp;
-    <select id="audioSelect" onchange="playAudio()">
+    <select id="audioSelect" onchange="updateAudioPlayers()">
         <option value="p257_258">p257_258</option>
         <option value="p232_198">p232_198</option>
         <option value="p257_066">p257_066</option>
@@ -428,7 +426,7 @@ Our work suggests that straighter time-independent probability paths improve gen
 <div class="container">
     <div class="inner-container" dir="auto" data-snippet-clipboard-copy-content="{% raw %}TBD{% endraw %}">
 <pre><code>{% raw %}TBD
-}{% endraw %}</code></pre>
+{% endraw %}</code></pre>
     </div>
     <button id="copyButton" class="highlight">
         <svg xmlns="http://www.w3.org/2000/svg" height="16" viewBox="0 0 16 16" width="16" class="octicon octicon-clippy">
@@ -458,12 +456,7 @@ Our work suggests that straighter time-independent probability paths improve gen
     <!-- JavaScript will populate this list -->
 </ol>
 
-<script>@article{richter2024investigating,
-    title={Investigating Training Objectives for Generative Speech Enhancement},
-    author={Julius Richter and Danilo de Oliveira and Timo Gerkmann},
-    journal={arXiv preprint arXiv:2409.10753},
-    year={2024}
-}
+<script>
     document.addEventListener("DOMContentLoaded", function () {
         const references = {
             "sgmse": "J. Richter, S. Welker, J.-M. Lemercier, B. Lay, and T. Gerkmann, “Speech enhancement and dereverberation with diffusion-based generative models,” IEEE/ACM Transactions on Audio, Speech, and Language Processing, vol. 31, pp. 2351–2364, 2023.",
