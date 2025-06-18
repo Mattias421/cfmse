@@ -48,4 +48,4 @@ Both scripts should receive the same `--test_dir` and `--enhanced_dir` parameter
 
 
 ## Citations / References
-This work (code, readme, experimental setup) is based off (SGMSE)[https://github.com/sp-uhh/sgmse] by `sp-uhh`, please check them out!
+This work (code, readme, experimental setup) is based off [SGMSE](https://github.com/sp-uhh/sgmse) by `sp-uhh`, please check them out!
