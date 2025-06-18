@@ -2,7 +2,7 @@
 To train an ICFM model with flow-matching loss, do `--backbone ncsnpp_v2 --sde icfm --sigma 0.1 --loss_type flow_matching`
 For the SB-SV, we build off the SB-VE, use the c parameter to set sigma e.g. `--backbone ncsnpp_v2 --sde sbve --loss_type data_prediction --variance_type stationary --c 0.1`
 For our novel one-step sampler, set `--sampler_type dp`
-To use the `xps/eval.sh` script, make sure you have WhiSQA and DNSMOS set up within the parent directory. Other scripts in the xps folder show examples of the settings used and how to run slurm job arrays.
+To use the `xps/eval.sh` script, make sure WhiSQA and DNSMOS are set up within the parent directory. Other scripts in the xps folder show examples of the settings used and how to run slurm job arrays.
 Audio samples can be heard [here](https://mattias421.github.io/cfmse/)
 
 ## Installation
