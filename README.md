@@ -21,7 +21,7 @@ Audio samples can be heard [here](https://mattias421.github.io/cfmse/)
 
 ## Training
 
-Training is done by executing `train.py`. A minimal running example with default settings (as in our paper [2]) can be run with
+Training is done by executing `train.py`. A minimal running example with default settings can be run with
 
 ```bash
 python train.py --base_dir <your_base_dir>
