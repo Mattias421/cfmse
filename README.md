@@ -1,4 +1,6 @@
 ## CFMSE
+This repository contains code for running experiments for: [Flowing Straighter with Conditional Flow Matching for Accurate Speech Enhancement](https://arxiv.org/abs/2508.20584)
+
 To train an ICFM model with flow-matching loss, do `--backbone ncsnpp_v2 --sde icfm --sigma 0.1 --loss_type flow_matching`
 For the SB-SV, we build off the SB-VE, use the c parameter to set sigma e.g. `--backbone ncsnpp_v2 --sde sbve --loss_type data_prediction --variance_type stationary --c 0.1`
 For our novel one-step sampler, set `--sampler_type dp`
