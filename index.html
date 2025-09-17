@@ -130,17 +130,11 @@ layout: default
 <a href="https://arxiv.org/abs/2508.20584">Read the paper here!</a>
 
 <p>
+For this project we investigated probability path design in flow-based speech enhancement (removing background noise from speech recordings). This involves treating noisy and clean speech as coupled distributions, and learning a Gaussian path that interpolates between them.  This is cool because you can train a neural network to estimate the gradient of this path, which is often a more stable task than explicit noise->clean prediction. There are many path design options (e.g. diffusion, Schrödinger bridge, optimal transport) available with no clear winner, which is why we looked into how setting up the mean and variance of the Gaussian path affects enhancement quality. 
 
-Current flow-based generative speech enhancement methods learn curved probability paths which model a mapping between clean and noisy speech. 
+Our key findings were that keeping variance constant throughout denoising improved speech quality metrics, and using linear gradients was also helpful. This can be thought of as reducing the time-dependent patterns that the neural network has to learn, increasing focus on the primary task (denoising speech). As a bonus we also looked into the emergent direct data predictive properties of these models and found that they're pretty good, meaning faster denoising than we expected!
 
-Despite impressive performance, the implications of curved probability paths are unknown. Methods such as Schrodinger bridges focus on curved paths, where time-dependent gradients and variance do not promote straight paths. Findings in machine learning research suggest that straight paths, such as conditional flow matching, are easier to train and offer better generalisation. Here we show the effect of path straightness on speech enhancement quality.
-
-We report experiments with the Schrodinger bridge, where we show that certain configurations are straighter. Conversely, we propose independent conditional flow-matching for speech enhancement, which models straight paths between noisy and clean speech. 
-
-We identify empirically that a time-independent variance has a greater effect on sample quality than the gradient.
-Conditional flow matching improves several speech quality metrics, but requires more inference steps. We rectify this with a one-step solution by inferring the trained flow-based model as if it were directly predictive.
-
-Our work suggests that straighter time-independent probability paths improve generative speech enhancement over curved time-dependent paths.
+Feel free to reach out if you found any of this interesting:)
 </p>
 
 <h2>
