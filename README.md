@@ -52,3 +52,22 @@ Both scripts should receive the same `--test_dir` and `--enhanced_dir` parameter
 
 ## Citations / References
 This work (code, readme, experimental setup) is based off [SGMSE](https://github.com/sp-uhh/sgmse) by `sp-uhh`, please check them out!
+
+To cite this work, please use the following bibtex
+```
+@InProceedings{cross2025cfmse,
+  title = 	 {Flowing Straighter with Conditional Flow Matching for Accurate Speech Enhancement},
+  author =       {Cross, Mattias and Ragni, Anton},
+  booktitle = 	 {Proceedings of the 2nd ECAI Workshop on "Machine Learning Meets Differential Equations: From Theory to Applications"},
+  pages = 	 {121--132},
+  year = 	 {2025},
+  editor = 	 {Coelho, Cecı́lia and Zimmering, Bernd and Costa, M. Fernanda P. and Ferrás, Luı́s L. and Niggemann, Oliver},
+  volume = 	 {277},
+  series = 	 {Proceedings of Machine Learning Research},
+  month = 	 {26 Oct},
+  publisher =    {PMLR},
+  pdf = 	 {https://raw.githubusercontent.com/mlresearch/v277/main/assets/cross25a/cross25a.pdf},
+  url = 	 {https://proceedings.mlr.press/v277/cross25a.html},
+}
+
+```
