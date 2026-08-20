@@ -258,6 +258,13 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# CFMSE experiment launch infrastructure and untracked host-local settings
+!xps/lib/
+!xps/lib/runtime.sh
+!xps/env/
+!xps/env/*.env.example
+xps/env/*.env
+
 # Pyre type checker
 .pyre/
 

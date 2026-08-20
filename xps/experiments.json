@@ -1,0 +1,215 @@
+{
+  "schema_version": 1,
+  "defaults": {
+    "seed": 42,
+    "train_args": [
+      "--max_epochs", "300",
+      "--check_val_every_n_epoch", "10",
+      "--num_eval_files", "20",
+      "--save_ckpt_interval", "50000"
+    ]
+  },
+  "experiments": [
+    {
+      "id": "data_sgmse_full",
+      "family": "data_efficiency",
+      "model": "sgmse",
+      "split": "full",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "ouve", "--loss_type", "score_matching", "--theta", "1.5", "--sigma-min", "0.05", "--sigma-max", "0.5", "--sampler_type", "pc"],
+      "eval_args": ["--sampler_type", "pc", "--N", "30"]
+    },
+    {
+      "id": "data_sgmse_medium",
+      "family": "data_efficiency",
+      "model": "sgmse",
+      "split": "medium",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "ouve", "--loss_type", "score_matching", "--theta", "1.5", "--sigma-min", "0.05", "--sigma-max", "0.5", "--sampler_type", "pc"],
+      "eval_args": ["--sampler_type", "pc", "--N", "30"]
+    },
+    {
+      "id": "data_sgmse_low",
+      "family": "data_efficiency",
+      "model": "sgmse",
+      "split": "low",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "ouve", "--loss_type", "score_matching", "--theta", "1.5", "--sigma-min", "0.05", "--sigma-max", "0.5", "--sampler_type", "pc"],
+      "eval_args": ["--sampler_type", "pc", "--N", "30"]
+    },
+    {
+      "id": "data_sgmse_very_low",
+      "family": "data_efficiency",
+      "model": "sgmse",
+      "split": "very_low",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "ouve", "--loss_type", "score_matching", "--theta", "1.5", "--sigma-min", "0.05", "--sigma-max", "0.5", "--sampler_type", "pc"],
+      "eval_args": ["--sampler_type", "pc", "--N", "30"]
+    },
+    {
+      "id": "data_sgmse_single",
+      "family": "data_efficiency",
+      "model": "sgmse",
+      "split": "single",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "ouve", "--loss_type", "score_matching", "--theta", "1.5", "--sigma-min", "0.05", "--sigma-max", "0.5", "--sampler_type", "pc"],
+      "eval_args": ["--sampler_type", "pc", "--N", "30"]
+    },
+    {
+      "id": "data_sbve_full",
+      "family": "data_efficiency",
+      "model": "sbve",
+      "split": "full",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "sbve", "--loss_type", "data_prediction", "--k", "2.6", "--c", "0.4", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "data_sbve_medium",
+      "family": "data_efficiency",
+      "model": "sbve",
+      "split": "medium",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "sbve", "--loss_type", "data_prediction", "--k", "2.6", "--c", "0.4", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "data_sbve_low",
+      "family": "data_efficiency",
+      "model": "sbve",
+      "split": "low",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "sbve", "--loss_type", "data_prediction", "--k", "2.6", "--c", "0.4", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "data_sbve_very_low",
+      "family": "data_efficiency",
+      "model": "sbve",
+      "split": "very_low",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "sbve", "--loss_type", "data_prediction", "--k", "2.6", "--c", "0.4", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "data_sbve_single",
+      "family": "data_efficiency",
+      "model": "sbve",
+      "split": "single",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "sbve", "--loss_type", "data_prediction", "--k", "2.6", "--c", "0.4", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "data_icfm_full",
+      "family": "data_efficiency",
+      "model": "icfm",
+      "split": "full",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "flow_matching", "--sigma", "0.1", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "data_icfm_medium",
+      "family": "data_efficiency",
+      "model": "icfm",
+      "split": "medium",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "flow_matching", "--sigma", "0.1", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "data_icfm_low",
+      "family": "data_efficiency",
+      "model": "icfm",
+      "split": "low",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "flow_matching", "--sigma", "0.1", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "data_icfm_very_low",
+      "family": "data_efficiency",
+      "model": "icfm",
+      "split": "very_low",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "flow_matching", "--sigma", "0.1", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "data_icfm_single",
+      "family": "data_efficiency",
+      "model": "icfm",
+      "split": "single",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "flow_matching", "--sigma", "0.1", "--sampler_type", "ode"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "ablate_condition_sgmse",
+      "family": "conditioning_ablation",
+      "model": "sgmse",
+      "split": "full",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "ouve", "--loss_type", "score_matching", "--theta", "1.5", "--sigma-min", "0.05", "--sigma-max", "0.5", "--sampler_type", "pc", "--no_noisy_conditioning"],
+      "eval_args": ["--sampler_type", "pc", "--N", "30"]
+    },
+    {
+      "id": "ablate_condition_sbve",
+      "family": "conditioning_ablation",
+      "model": "sbve",
+      "split": "full",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "sbve", "--loss_type", "data_prediction", "--k", "2.6", "--c", "0.4", "--sampler_type", "ode", "--no_noisy_conditioning"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "ablate_condition_icfm",
+      "family": "conditioning_ablation",
+      "model": "icfm",
+      "split": "full",
+      "server": "stanage",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "flow_matching", "--sigma", "0.1", "--sampler_type", "ode", "--no_noisy_conditioning"],
+      "eval_args": ["--sampler_type", "ode", "--N", "50"]
+    },
+    {
+      "id": "direct_icfm_t1",
+      "family": "direct_baseline",
+      "model": "icfm",
+      "split": "full",
+      "server": "phoebe",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "flow_matching", "--sigma", "0.1", "--sampler_type", "dp", "--time_sampling", "fixed", "--fixed_time", "1"],
+      "eval_args": ["--sampler_type", "dp", "--N", "1"]
+    },
+    {
+      "id": "direct_unet_regressor",
+      "family": "direct_baseline",
+      "model": "unet_regressor",
+      "split": "full",
+      "server": "phoebe",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "data_prediction", "--sigma", "0.1", "--sampler_type", "dp", "--time_sampling", "fixed", "--fixed_time", "1", "--path_noise_scale", "0", "--no_noisy_conditioning", "--no_time_conditioning"],
+      "eval_args": ["--sampler_type", "dp", "--N", "1"]
+    },
+    {
+      "id": "augmented_ddp_finetune",
+      "family": "augmented_ddp",
+      "model": "icfm",
+      "split": "full",
+      "server": "mimas",
+      "depends_on": "data_icfm_full",
+      "init_checkpoint_env": "CFMSE_ICFM_FULL_CKPT",
+      "init_checkpoint_profile": "icfm_uniform_flow_matching",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "flow_matching", "--sigma", "0.1", "--sampler_type", "dp", "--max_epochs", "50", "--time_sampling", "fixed", "--fixed_time", "1"],
+      "eval_args": ["--sampler_type", "dp", "--N", "1"]
+    },
+    {
+      "id": "augmented_ddp_annealed",
+      "family": "augmented_ddp",
+      "model": "icfm",
+      "split": "full",
+      "server": "mimas",
+      "train_args": ["--backbone", "ncsnpp_v2", "--sde", "icfm", "--loss_type", "flow_matching", "--sigma", "0.1", "--sampler_type", "dp", "--time_sampling", "annealed_t1", "--t1_probability_start", "0", "--t1_probability_end", "1", "--t1_anneal_epochs", "250"],
+      "eval_args": ["--sampler_type", "dp", "--N", "1"]
+    }
+  ]
+}

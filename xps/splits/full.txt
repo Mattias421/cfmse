@@ -1,0 +1,27 @@
+# All 26 VB+DMD training speakers; p226 and p287 remain validation-only.
+p227
+p228
+p230
+p231
+p233
+p236
+p239
+p243
+p244
+p250
+p254
+p256
+p258
+p259
+p267
+p268
+p269
+p270
+p273
+p274
+p276
+p277
+p278
+p279
+p282
+p286

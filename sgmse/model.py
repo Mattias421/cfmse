@@ -1,5 +1,6 @@
 import time
 from math import ceil
+from pathlib import Path
 import warnings
 
 import torch
@@ -19,6 +20,71 @@ from torch_pesq import PesqLoss
 import torchaudio
 import whisper
 from sgmse.optimal_transport import OTPlanSamplerComplex
+
+
+def stratified_file_pairs(clean_files, noisy_files, limit):
+    """Select deterministic, speaker-balanced validation pairs.
+
+    Files within each speaker are sampled across the full sorted list rather
+    than taking only the lexicographically first utterances. The returned list
+    is interleaved by speaker so DDP partitions remain balanced when possible.
+    """
+    if len(clean_files) != len(noisy_files):
+        raise ValueError("Validation clean/noisy file counts differ")
+    if limit <= 0:
+        return []
+
+    groups = {}
+    for clean_file, noisy_file in zip(clean_files, noisy_files):
+        clean_speaker = Path(clean_file).stem.split("_", 1)[0]
+        noisy_speaker = Path(noisy_file).stem.split("_", 1)[0]
+        if clean_speaker != noisy_speaker:
+            raise ValueError(
+                f"Validation speaker mismatch: {clean_file} and {noisy_file}"
+            )
+        groups.setdefault(clean_speaker, []).append((clean_file, noisy_file))
+
+    target = min(limit, len(clean_files))
+    speakers = sorted(groups)
+    quotas = {
+        speaker: min(len(groups[speaker]), target // len(speakers))
+        for speaker in speakers
+    }
+    remaining = target - sum(quotas.values())
+    while remaining:
+        progressed = False
+        for speaker in speakers:
+            if quotas[speaker] < len(groups[speaker]):
+                quotas[speaker] += 1
+                remaining -= 1
+                progressed = True
+                if remaining == 0:
+                    break
+        if not progressed:
+            break
+
+    selected_by_speaker = {}
+    for speaker in speakers:
+        files = groups[speaker]
+        count = quotas[speaker]
+        # Midpoints of equal-width bins cover each speaker's full file list.
+        indices = (
+            [
+                min(int((index + 0.5) * len(files) / count), len(files) - 1)
+                for index in range(count)
+            ]
+            if count
+            else []
+        )
+        selected_by_speaker[speaker] = [files[index] for index in indices]
+
+    selected = []
+    for index in range(max(quotas.values(), default=0)):
+        for speaker in speakers:
+            speaker_files = selected_by_speaker[speaker]
+            if index < len(speaker_files):
+                selected.append(speaker_files[index])
+    return selected
 
 
 class ScoreModel(pl.LightningModule):
@@ -113,6 +179,69 @@ class ScoreModel(pl.LightningModule):
             action="store_true",
             help="Whether to use ot minibatches or not (for unpaired training)",
         )
+        parser.add_argument(
+            "--no_noisy_conditioning",
+            action="store_false",
+            dest="condition_on_noisy",
+            help=(
+                "Do not pass the original noisy spectrogram to the neural network. "
+                "The forward process and sampler may still use it."
+            ),
+        )
+        parser.set_defaults(condition_on_noisy=True)
+        parser.add_argument(
+            "--no_time_conditioning",
+            action="store_false",
+            dest="condition_on_time",
+            help=(
+                "Make the network time-independent. NCSN++ v2 removes its time "
+                "embedding branch; other backbones receive a constant time."
+            ),
+        )
+        parser.set_defaults(condition_on_time=True)
+        parser.add_argument(
+            "--time_sampling",
+            type=str,
+            choices=("uniform", "fixed", "annealed_t1"),
+            default="uniform",
+            help=(
+                "Training-time distribution: uniform on [t_eps, T], a fixed time, "
+                "or a linear mixture that anneals from uniform to t=1."
+            ),
+        )
+        parser.add_argument(
+            "--fixed_time",
+            type=float,
+            default=1.0,
+            help="Time used when --time_sampling=fixed.",
+        )
+        parser.add_argument(
+            "--t1_probability_start",
+            type=float,
+            default=0.0,
+            help="Initial p(t=1) for --time_sampling=annealed_t1.",
+        )
+        parser.add_argument(
+            "--t1_probability_end",
+            type=float,
+            default=1.0,
+            help="Final p(t=1) for --time_sampling=annealed_t1.",
+        )
+        parser.add_argument(
+            "--t1_anneal_epochs",
+            type=int,
+            default=250,
+            help="Number of epochs over which p(t=1) changes linearly.",
+        )
+        parser.add_argument(
+            "--path_noise_scale",
+            type=float,
+            default=1.0,
+            help=(
+                "Multiplier for perturbation noise when constructing x_t. Set to 0 "
+                "for an exact noisy-to-clean direct-prediction input at t=1."
+            ),
+        )
         return parser
 
     def __init__(
@@ -139,6 +268,14 @@ class ScoreModel(pl.LightningModule):
         use_marginal_path_network=False,
         data_module_cls=None,
         ot_minibatch=False,
+        condition_on_noisy=True,
+        condition_on_time=True,
+        time_sampling="uniform",
+        fixed_time=1.0,
+        t1_probability_start=0.0,
+        t1_probability_end=1.0,
+        t1_anneal_epochs=250,
+        path_noise_scale=1.0,
         **kwargs,
     ):
         """
@@ -156,7 +293,10 @@ class ScoreModel(pl.LightningModule):
         # Initialize Backbone DNN
         self.backbone = backbone
         dnn_cls = BackboneRegistry.get_by_name(backbone)
-        self.dnn = dnn_cls(**kwargs)
+        if backbone == "ncsnpp_v2":
+            self.dnn = dnn_cls(condition_on_time=condition_on_time, **kwargs)
+        else:
+            self.dnn = dnn_cls(**kwargs)
         # Initialize SDE
         sde_cls = SDERegistry.get_by_name(sde)
         self.sde = sde_cls(**kwargs)
@@ -181,6 +321,29 @@ class ScoreModel(pl.LightningModule):
         self.num_eval_files = num_eval_files
         self.sr = sr
         self.ot_minibatch = ot_minibatch
+        self.condition_on_noisy = condition_on_noisy
+        self.condition_on_time = condition_on_time
+        self.time_sampling = time_sampling
+        self.fixed_time = fixed_time
+        self.t1_probability_start = t1_probability_start
+        self.t1_probability_end = t1_probability_end
+        self.t1_anneal_epochs = t1_anneal_epochs
+        self.path_noise_scale = path_noise_scale
+
+        if self.time_sampling not in ("uniform", "fixed", "annealed_t1"):
+            raise ValueError(f"Invalid time_sampling: {self.time_sampling}")
+        if not self.t_eps <= self.fixed_time <= self.sde.T:
+            raise ValueError(
+                f"fixed_time must be in [t_eps, T]=[{self.t_eps}, {self.sde.T}]"
+            )
+        if not 0.0 <= self.t1_probability_start <= 1.0:
+            raise ValueError("t1_probability_start must be in [0, 1]")
+        if not 0.0 <= self.t1_probability_end <= 1.0:
+            raise ValueError("t1_probability_end must be in [0, 1]")
+        if self.t1_anneal_epochs <= 0:
+            raise ValueError("t1_anneal_epochs must be positive")
+        if self.path_noise_scale < 0.0:
+            raise ValueError("path_noise_scale must be non-negative")
         # Initialize PESQ loss if pesq_weight > 0.0
         if pesq_weight > 0.0:
             self.pesq_loss = PesqLoss(1.0, sample_rate=sr).eval()
@@ -209,7 +372,7 @@ class ScoreModel(pl.LightningModule):
             self.ot_sampler = OTPlanSamplerComplex(method="exact")
 
         self.save_hyperparameters(ignore=["no_wandb"])
-        self.data_module = data_module_cls(**kwargs, gpu=kwargs.get("gpus", 0) > 0)
+        self.data_module = data_module_cls(**kwargs, gpu=torch.cuda.is_available())
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
@@ -232,7 +395,7 @@ class ScoreModel(pl.LightningModule):
     def on_save_checkpoint(self, checkpoint):
         checkpoint["ema"] = self.ema.state_dict()
 
-    def train(self, mode, no_ema=False):
+    def train(self, mode=True, no_ema=False):
         res = super().train(
             mode
         )  # call the standard `train` method with the given mode
@@ -409,26 +572,55 @@ class ScoreModel(pl.LightningModule):
 
         return loss
 
+    def _t1_probability(self):
+        if self.time_sampling != "annealed_t1":
+            return (
+                1.0 if self.time_sampling == "fixed" and self.fixed_time == 1 else 0.0
+            )
+
+        progress = min(float(self.current_epoch) / self.t1_anneal_epochs, 1.0)
+        return self.t1_probability_start + progress * (
+            self.t1_probability_end - self.t1_probability_start
+        )
+
+    def _sample_time(self, batch_size, device):
+        if self.time_sampling == "fixed":
+            return torch.full((batch_size,), self.fixed_time, device=device)
+
+        t = (
+            torch.rand(batch_size, device=device) * (self.sde.T - self.t_eps)
+            + self.t_eps
+        )
+        if self.time_sampling == "annealed_t1":
+            use_t1 = torch.rand(batch_size, device=device) < self._t1_probability()
+            t = torch.where(use_t1, torch.full_like(t, self.sde.T), t)
+        return t
+
     def _step(self, batch, batch_idx):
         x, y = batch
 
         if self.ot_minibatch:
             x, y = self.ot_sampler.sample_plan(x, y)
 
-        t = (
-            torch.rand(x.shape[0], device=x.device) * (self.sde.T - self.t_eps)
-            + self.t_eps
-        )
+        t = self._sample_time(x.shape[0], x.device)
         mean, std = self.sde.marginal_prob(x, y, t)
         z = torch.randn_like(x)  # i.i.d. normal distributed with var=0.5
         sigma = std[:, None, None, None]
-        x_t = mean + sigma * z
+        x_t = mean + self.path_noise_scale * sigma * z
         forward_out = self(x_t, y, t)
         loss = self._loss(forward_out, x_t, z, t, mean, x, y)
         return loss
 
     def training_step(self, batch, batch_idx):
         loss = self._step(batch, batch_idx)
+        if self.time_sampling == "annealed_t1":
+            self.log(
+                "train_t1_probability",
+                self._t1_probability(),
+                on_step=False,
+                on_epoch=True,
+                sync_dist=True,
+            )
         self.log(
             "train_loss",
             loss,
@@ -442,32 +634,21 @@ class ScoreModel(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         # Evaluate speech enhancement performance
         if batch_idx == 0 and self.num_eval_files != 0:
-            rank = dist.get_rank()
-            world_size = dist.get_world_size()
+            rank = dist.get_rank() if dist.is_initialized() else 0
+            world_size = dist.get_world_size() if dist.is_initialized() else 1
 
-            # Split the evaluation files among the GPUs
-            eval_files_per_gpu = self.num_eval_files // world_size
-
-            clean_files = self.data_module.valid_set.clean_files[: self.num_eval_files]
-            noisy_files = self.data_module.valid_set.noisy_files[: self.num_eval_files]
-
-            # Select the files for this GPU
-            if rank == world_size - 1:
-                clean_files = clean_files[rank * eval_files_per_gpu :]
-                noisy_files = noisy_files[rank * eval_files_per_gpu :]
-            else:
-                clean_files = clean_files[
-                    rank * eval_files_per_gpu : (rank + 1) * eval_files_per_gpu
-                ]
-                noisy_files = noisy_files[
-                    rank * eval_files_per_gpu : (rank + 1) * eval_files_per_gpu
-                ]
+            evaluation_pairs = stratified_file_pairs(
+                self.data_module.valid_set.clean_files,
+                self.data_module.valid_set.noisy_files,
+                self.num_eval_files,
+            )
+            local_pairs = evaluation_pairs[rank::world_size]
 
             # Evaluate the performance of the model
             pesq_sum = 0
             si_sdr_sum = 0
             estoi_sum = 0
-            for clean_file, noisy_file in zip(clean_files, noisy_files):
+            for clean_file, noisy_file in local_pairs:
                 # Load the clean and noisy speech
                 x, sr_x = load(clean_file)
                 x = x.squeeze().numpy()
@@ -495,13 +676,38 @@ class ScoreModel(pl.LightningModule):
                 si_sdr_sum += si_sdr(x, x_hat)
                 estoi_sum += stoi(x, x_hat, self.sr, extended=True)
 
-            pesq_avg = pesq_sum / len(clean_files)
-            si_sdr_avg = si_sdr_sum / len(clean_files)
-            estoi_avg = estoi_sum / len(clean_files)
+            metric_totals = torch.tensor(
+                [pesq_sum, si_sdr_sum, estoi_sum, len(local_pairs)],
+                dtype=torch.float64,
+                device=self.device,
+            )
+            if dist.is_initialized():
+                dist.all_reduce(metric_totals, op=dist.ReduceOp.SUM)
+            if metric_totals[3].item() == 0:
+                raise RuntimeError("No validation files were selected for evaluation")
+            pesq_avg, si_sdr_avg, estoi_avg = metric_totals[:3] / metric_totals[3]
 
-            self.log("pesq", pesq_avg, on_step=False, on_epoch=True, sync_dist=True)
-            self.log("si_sdr", si_sdr_avg, on_step=False, on_epoch=True, sync_dist=True)
-            self.log("estoi", estoi_avg, on_step=False, on_epoch=True, sync_dist=True)
+            # Every rank has the same explicitly reduced values. Let Lightning
+            # average those identical scalars so distributed callbacks receive
+            # the monitor on every rank.
+            sync_metrics = dist.is_initialized()
+            self.log(
+                "pesq", pesq_avg, on_step=False, on_epoch=True, sync_dist=sync_metrics
+            )
+            self.log(
+                "si_sdr",
+                si_sdr_avg,
+                on_step=False,
+                on_epoch=True,
+                sync_dist=sync_metrics,
+            )
+            self.log(
+                "estoi",
+                estoi_avg,
+                on_step=False,
+                on_epoch=True,
+                sync_dist=sync_metrics,
+            )
 
         loss = self._step(batch, batch_idx)
         self.log("valid_loss", loss, on_step=False, on_epoch=True, sync_dist=True)
@@ -529,7 +735,15 @@ class ScoreModel(pl.LightningModule):
 
         # In [3], we use new code with backbone='ncsnpp_v2':
         if self.backbone == "ncsnpp_v2":
-            F = self.dnn(self._c_in(t) * x_t, self._c_in(t) * y, t)
+            network_y = y if self.condition_on_noisy else torch.zeros_like(y)
+            # Fourier embeddings take log(t), so use a positive constant when time
+            # conditioning is disabled. The network output is then invariant to t.
+            network_t = t if self.condition_on_time else torch.ones_like(t)
+            F = self.dnn(
+                self._c_in(t) * x_t,
+                self._c_in(t) * network_y,
+                network_t,
+            )
 
             # Scaling the network output, see below Eq. (7) in the paper
             if self.network_scaling == "1/sigma":
@@ -555,8 +769,10 @@ class ScoreModel(pl.LightningModule):
 
         # In [1] and [2], we use the old code:
         else:
-            dnn_input = torch.cat([x_t, y], dim=1)
-            score = -self.dnn(dnn_input, t)
+            network_y = y if self.condition_on_noisy else torch.zeros_like(y)
+            network_t = t if self.condition_on_time else torch.ones_like(t)
+            dnn_input = torch.cat([x_t, network_y], dim=1)
+            score = -self.dnn(dnn_input, network_t)
             return score
 
     def _c_in(self, t):

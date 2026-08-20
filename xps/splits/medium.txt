@@ -1,0 +1,14 @@
+# Nested 13-speaker (50%) subset, selected with seed 1337.
+p227
+p228
+p230
+p231
+p233
+p243
+p244
+p259
+p267
+p268
+p276
+p282
+p286

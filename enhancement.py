@@ -1,4 +1,3 @@
-print("in enhance")
 import glob
 import torch
 from tqdm import tqdm
@@ -9,19 +8,11 @@ from os.path import join, dirname
 from argparse import ArgumentParser
 from librosa import resample
 
-# Set CUDA architecture list
-from sgmse.util.other import set_torch_cuda_arch_list
 from sgmse.model import ScoreModel
-print("in enhance")
 from sgmse.util.other import pad_spec
-
-#set_torch_cuda_arch_list()
-
-print("in enhance")
 
 
 if __name__ == "__main__":
-    print("in enhance")
     parser = ArgumentParser()
     parser.add_argument(
         "--test_dir", type=str, required=True, help="Directory containing the test data"
@@ -134,14 +125,17 @@ if __name__ == "__main__":
             model.sde.N = args.N
             sampler_type = "ode" if args.sampler_type == "pc" else args.sampler_type
             sampler = model.get_sb_sampler(
-                sde=model.sde, y=Y.cuda(), sampler_type=sampler_type
+                sde=model.sde, y=Y.to(args.device), sampler_type=sampler_type
             )
         elif model.sde.__class__.__name__ == "ICFM":
             model = model.to(args.device)
             model.sde.N = args.N
             sampler_type = "ode" if args.sampler_type == "pc" else args.sampler_type
             sampler = model.get_cfm_sampler(
-                sde=model.sde, y=Y.cuda(), sampler_type=sampler_type
+                sde=model.sde,
+                y=Y.to(args.device),
+                sampler_type=sampler_type,
+                loss=model.loss_type,
             )
         else:
             raise ValueError(f"SDE {model.sde.__class__.__name__} not supported")

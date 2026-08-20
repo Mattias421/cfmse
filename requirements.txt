@@ -17,6 +17,7 @@ scipy
 sdeint
 setuptools
 seaborn
+soundfile
 torch
 torch-ema
 torch-pesq

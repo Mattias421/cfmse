@@ -66,6 +66,7 @@ class NCSNpp_v2(nn.Module):
         fourier_scale=16,
         image_size=256,
         embedding_type="fourier",
+        condition_on_time=True,
         dropout=0.0,
         **unused_kwargs,
     ):
@@ -85,6 +86,7 @@ class NCSNpp_v2(nn.Module):
         self.progressive = progressive = progressive.lower()
         self.progressive_input = progressive_input = progressive_input.lower()
         self.embedding_type = embedding_type = embedding_type.lower()
+        self.condition_on_time = condition_on_time
 
         assert progressive in ["none", "output_skip", "residual"]
         assert progressive_input in ["none", "input_skip", "residual"]
@@ -97,26 +99,31 @@ class NCSNpp_v2(nn.Module):
         self.output_layer = nn.Conv2d(in_channels, out_channels, 1)
 
         modules = []
-        # timestep/noise_level embedding
-        if embedding_type == "fourier":
-            # Gaussian Fourier features embeddings.
-            modules.append(
-                layerspp.GaussianFourierProjection(
-                    embedding_size=nf, scale=fourier_scale
+        # Timestep/noise-level embedding. The direct U-Net baseline removes
+        # this branch, including its trainable projections and ResBlock biases.
+        if condition_on_time:
+            if embedding_type == "fourier":
+                # Gaussian Fourier features embeddings.
+                modules.append(
+                    layerspp.GaussianFourierProjection(
+                        embedding_size=nf, scale=fourier_scale
+                    )
                 )
-            )
-            embed_dim = 2 * nf
-        elif embedding_type == "positional":
-            embed_dim = nf
-        else:
-            raise ValueError(f"embedding type {embedding_type} unknown.")
+                embed_dim = 2 * nf
+            elif embedding_type == "positional":
+                embed_dim = nf
+            else:
+                raise ValueError(f"embedding type {embedding_type} unknown.")
 
-        modules.append(nn.Linear(embed_dim, nf * 4))
-        modules[-1].weight.data = default_initializer()(modules[-1].weight.shape)
-        nn.init.zeros_(modules[-1].bias)
-        modules.append(nn.Linear(nf * 4, nf * 4))
-        modules[-1].weight.data = default_initializer()(modules[-1].weight.shape)
-        nn.init.zeros_(modules[-1].bias)
+            modules.append(nn.Linear(embed_dim, nf * 4))
+            modules[-1].weight.data = default_initializer()(modules[-1].weight.shape)
+            nn.init.zeros_(modules[-1].bias)
+            modules.append(nn.Linear(nf * 4, nf * 4))
+            modules[-1].weight.data = default_initializer()(modules[-1].weight.shape)
+            nn.init.zeros_(modules[-1].bias)
+            temb_dim = nf * 4
+        else:
+            temb_dim = None
 
         AttnBlock = functools.partial(
             layerspp.AttnBlockpp, init_scale=init_scale, skip_rescale=skip_rescale
@@ -161,7 +168,7 @@ class NCSNpp_v2(nn.Module):
                 dropout=dropout,
                 init_scale=init_scale,
                 skip_rescale=skip_rescale,
-                temb_dim=nf * 4,
+                temb_dim=temb_dim,
             )
 
         elif resblock_type == "biggan":
@@ -173,7 +180,7 @@ class NCSNpp_v2(nn.Module):
                 fir_kernel=fir_kernel,
                 init_scale=init_scale,
                 skip_rescale=skip_rescale,
-                temb_dim=nf * 4,
+                temb_dim=temb_dim,
             )
 
         else:
@@ -306,25 +313,28 @@ class NCSNpp_v2(nn.Module):
         # Convert real and imaginary parts of (x,y) into four channel dimensions
         x = torch.cat((x.real, x.imag, y.real, y.imag), dim=1)
 
-        if self.embedding_type == "fourier":
-            # Gaussian Fourier features embeddings.
-            used_sigmas = t
-            temb = modules[m_idx](torch.log(used_sigmas))
+        if self.condition_on_time:
+            if self.embedding_type == "fourier":
+                # Gaussian Fourier features embeddings.
+                used_sigmas = t
+                temb = modules[m_idx](torch.log(used_sigmas))
+                m_idx += 1
+
+            elif self.embedding_type == "positional":
+                # Sinusoidal positional embeddings.
+                timesteps = t
+                used_sigmas = self.sigmas[t.long()]
+                temb = layers.get_timestep_embedding(timesteps, self.nf)
+
+            else:
+                raise ValueError(f"embedding type {self.embedding_type} unknown.")
+
+            temb = modules[m_idx](temb)
             m_idx += 1
-
-        elif self.embedding_type == "positional":
-            # Sinusoidal positional embeddings.
-            timesteps = t
-            used_sigmas = self.sigmas[t.long()]
-            temb = layers.get_timestep_embedding(timesteps, self.nf)
-
+            temb = modules[m_idx](self.act(temb))
+            m_idx += 1
         else:
-            raise ValueError(f"embedding type {self.embedding_type} unknown.")
-
-        temb = modules[m_idx](temb)
-        m_idx += 1
-        temb = modules[m_idx](self.act(temb))
-        m_idx += 1
+            temb = None
 
         # Downsampling block
         input_pyramid = None

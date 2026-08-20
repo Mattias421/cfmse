@@ -1,0 +1,4 @@
+# Nested 3-speaker (~10%) subset, selected with seed 1337.
+p243
+p259
+p268

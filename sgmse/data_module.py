@@ -7,6 +7,7 @@ from glob import glob
 from torchaudio import load
 import numpy as np
 import torch.nn.functional as F
+from pathlib import Path
 
 
 def get_window(window_type, window_length):
@@ -31,6 +32,8 @@ class Specs(Dataset):
         spec_transform=None,
         stft_kwargs=None,
         unpaired=False,
+        speaker_file=None,
+        expected_sample_rate=16000,
         **ignored_kwargs,
     ):
         # Read file paths according to file naming format.
@@ -62,12 +65,66 @@ class Specs(Dataset):
             # Feel free to add your own directory format
             raise NotImplementedError(f"Directory format {format} unknown!")
 
+        if len(self.clean_files) != len(self.noisy_files):
+            raise ValueError(
+                f"Mismatched clean/noisy file counts in {data_dir}/{subset}: "
+                f"{len(self.clean_files)} != {len(self.noisy_files)}"
+            )
+
+        clean_root_name = "anechoic" if format == "reverb" else "clean"
+        noisy_root_name = "reverb" if format == "reverb" else "noisy"
+        clean_root = Path(data_dir, subset, clean_root_name)
+        noisy_root = Path(data_dir, subset, noisy_root_name)
+        clean_by_name = {
+            str(Path(path).relative_to(clean_root)): path for path in self.clean_files
+        }
+        noisy_by_name = {
+            str(Path(path).relative_to(noisy_root)): path for path in self.noisy_files
+        }
+        if clean_by_name.keys() != noisy_by_name.keys():
+            missing_noisy = sorted(clean_by_name.keys() - noisy_by_name.keys())[:5]
+            missing_clean = sorted(noisy_by_name.keys() - clean_by_name.keys())[:5]
+            raise ValueError(
+                f"Clean/noisy filenames do not match in {data_dir}/{subset}; "
+                f"missing noisy={missing_noisy}, missing clean={missing_clean}"
+            )
+
+        paired_names = sorted(clean_by_name)
+        if speaker_file is not None:
+            speaker_path = Path(speaker_file)
+            with speaker_path.open() as handle:
+                speakers = {
+                    line.split("#", 1)[0].strip()
+                    for line in handle
+                    if line.split("#", 1)[0].strip()
+                }
+            if not speakers:
+                raise ValueError(f"Speaker file is empty: {speaker_path}")
+            available = {Path(name).stem.split("_", 1)[0] for name in paired_names}
+            unknown = sorted(speakers - available)
+            if unknown:
+                raise ValueError(
+                    f"Speaker file {speaker_path} contains speakers absent from "
+                    f"{subset}: {unknown}"
+                )
+            paired_names = [
+                name
+                for name in paired_names
+                if Path(name).stem.split("_", 1)[0] in speakers
+            ]
+
+        if not paired_names:
+            raise ValueError(f"No paired audio files found in {data_dir}/{subset}")
+        self.clean_files = [clean_by_name[name] for name in paired_names]
+        self.noisy_files = [noisy_by_name[name] for name in paired_names]
+
         self.dummy = dummy
         self.num_frames = num_frames
         self.shuffle_spec = shuffle_spec
         self.normalize = normalize
         self.spec_transform = spec_transform
         self.unpaired = unpaired
+        self.expected_sample_rate = expected_sample_rate
 
         assert all(
             k in stft_kwargs.keys() for k in ["n_fft", "hop_length", "center", "window"]
@@ -80,11 +137,24 @@ class Specs(Dataset):
 
     def __getitem__(self, i):
         if self.unpaired:
-            x, _ = load(self.clean_files[i])
-            y, _ = load(self.noisy_files[torch.randint(0, self.__len__(), (1,)).item()])
+            x, sr_x = load(self.clean_files[i])
+            y, sr_y = load(
+                self.noisy_files[torch.randint(0, self.__len__(), (1,)).item()]
+            )
         else:
-            x, _ = load(self.clean_files[i])
-            y, _ = load(self.noisy_files[i])
+            x, sr_x = load(self.clean_files[i])
+            y, sr_y = load(self.noisy_files[i])
+
+        if sr_x != sr_y:
+            raise ValueError(
+                f"Sample rates differ for pair {self.clean_files[i]} and "
+                f"{self.noisy_files[i]}: {sr_x} != {sr_y}"
+            )
+        if self.expected_sample_rate and sr_x != self.expected_sample_rate:
+            raise ValueError(
+                f"Expected {self.expected_sample_rate} Hz audio, got {sr_x} Hz in "
+                f"{self.clean_files[i]}"
+            )
 
         # formula applies for center=True
         target_len = (self.num_frames - 1) * self.hop_length
@@ -229,6 +299,21 @@ class SpecsDataModule(pl.LightningDataModule):
             default="exponent",
             help="Spectogram transformation for input representation.",
         )
+        parser.add_argument(
+            "--train_speaker_file",
+            type=str,
+            default=None,
+            help=(
+                "Optional text file containing one training speaker ID per line. "
+                "Validation and test data are never filtered."
+            ),
+        )
+        parser.add_argument(
+            "--expected_sample_rate",
+            type=int,
+            default=16000,
+            help="Fail if a loaded training pair is not at this sample rate.",
+        )
         return parser
 
     def __init__(
@@ -248,6 +333,8 @@ class SpecsDataModule(pl.LightningDataModule):
         gpu=True,
         normalize="noisy",
         transform_type="exponent",
+        train_speaker_file=None,
+        expected_sample_rate=16000,
         **kwargs,
     ):
         super().__init__()
@@ -268,6 +355,8 @@ class SpecsDataModule(pl.LightningDataModule):
         self.transform_type = transform_type
         self.kwargs = kwargs
         self.unpaired = unpaired
+        self.train_speaker_file = train_speaker_file
+        self.expected_sample_rate = expected_sample_rate
 
     def setup(self, stage=None):
         specs_kwargs = dict(
@@ -285,6 +374,8 @@ class SpecsDataModule(pl.LightningDataModule):
                 format=self.format,
                 normalize=self.normalize,
                 unpaired=self.unpaired,
+                speaker_file=self.train_speaker_file,
+                expected_sample_rate=self.expected_sample_rate,
                 **specs_kwargs,
             )
             self.valid_set = Specs(
@@ -294,6 +385,7 @@ class SpecsDataModule(pl.LightningDataModule):
                 shuffle_spec=False,
                 format=self.format,
                 normalize=self.normalize,
+                expected_sample_rate=self.expected_sample_rate,
                 **specs_kwargs,
             )
         if stage == "test" or stage is None:
@@ -304,6 +396,7 @@ class SpecsDataModule(pl.LightningDataModule):
                 shuffle_spec=False,
                 format=self.format,
                 normalize=self.normalize,
+                expected_sample_rate=self.expected_sample_rate,
                 **specs_kwargs,
             )
 
