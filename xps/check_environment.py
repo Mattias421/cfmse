@@ -5,6 +5,7 @@ import argparse
 import importlib
 import importlib.metadata
 import json
+import os
 import platform
 import shutil
 from pathlib import Path
@@ -85,6 +86,14 @@ def main():
     if ninja is None:
         errors.append("ninja executable is not on PATH")
 
+    cuda_home = os.environ.get("CUDA_HOME")
+    nvcc = shutil.which("nvcc")
+    if args.require_cuda_build and nvcc is None:
+        errors.append(
+            "nvcc is not on PATH; uv supplies Python dependencies, but the "
+            "NCSN++ extensions also require an external CUDA toolkit"
+        )
+
     torch = importlib.import_module("torch") if "torch" in versions else None
     cuda_build = torch.version.cuda if torch is not None else None
     if args.require_cuda_build and cuda_build is None:
@@ -97,7 +106,9 @@ def main():
         json.dumps(
             {
                 "cuda_build": cuda_build,
+                "cuda_home": cuda_home,
                 "ninja": ninja,
+                "nvcc": nvcc,
                 "packages": versions,
                 "platform": platform.platform(),
                 "python": platform.python_version(),

@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+CFMSE_LAUNCHER_NAME=mimas
 # shellcheck disable=SC1091
 source "${repo_root}/xps/lib/runtime.sh" mimas
 
@@ -85,4 +86,7 @@ for slot in "${!pids[@]}"; do
         failed=1
     fi
 done
-exit "${failed}"
+if (( failed != 0 )); then
+    cfmse_error_handler 1 "${LINENO}" "one or more Mimas experiment slots"
+fi
+echo "Mimas experiments completed successfully."

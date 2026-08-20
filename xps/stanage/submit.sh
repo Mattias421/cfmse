@@ -4,6 +4,7 @@ set -Eeuo pipefail
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "${repo_root}"
 export CFMSE_REPO_ROOT=${repo_root}
+CFMSE_LAUNCHER_NAME=stanage-submit
 
 # Load exactly the module/environment contract that each array task will use.
 # shellcheck disable=SC1091
@@ -22,3 +23,4 @@ fi
 mkdir -p logs/slurm
 
 sbatch "$@" xps/stanage/train_array.sbatch
+echo "Stanage array submitted successfully."

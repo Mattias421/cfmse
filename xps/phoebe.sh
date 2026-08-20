@@ -3,6 +3,7 @@
 set -Eeuo pipefail
 
 repo_root=$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)
+CFMSE_LAUNCHER_NAME=phoebe
 # shellcheck disable=SC1091
 source "${repo_root}/xps/lib/runtime.sh" phoebe
 
@@ -32,3 +33,4 @@ for experiment_index in 0 1; do
         --phase "${CFMSE_PHASE:-train}" \
         "${runner_args[@]}"
 done
+echo "Phoebe experiments completed successfully."

@@ -24,6 +24,7 @@ if [[ ! -f ${repo_root}/xps/lib/runtime.sh ]]; then
 fi
 # shellcheck disable=SC1091
 source "${repo_root}/xps/lib/runtime.sh" stanage
+cfmse_install_error_handler
 
 # runtime.sh also runs during submission, where TMPDIR is not Slurm job-local.
 # Detect the GPU Slurm selected from the A100/H100/H100-NVL pool, then compile

@@ -21,14 +21,18 @@ small GPUs. Training is FP32 on every server.
 
 ## One-time setup on each server
 
-1. Copy `xps/env/<server>.env.example` to `xps/env/<server>.env` and fill in the
-   data, output, Python, and activation paths. These local `.env` files should not
-   be committed.
-2. Activate/build a portable environment for all three Stanage node types. A100
+1. Export the shared filesystem roots in the login environment: `EXP` contains
+   the `cfmse` checkout and `DATA` contains `VB+DMD`. The launchers therefore use
+   `$EXP/cfmse`, `$DATA/VB+DMD`, `$EXP/cfmse/logs`, and
+   Python via `uv run` without per-host path configuration. Files named
+   `xps/env/<server>.env` are optional and only needed for real host-specific
+   overrides; the `.env.example` files document those overrides.
+2. Create/sync the uv environment as `$EXP/cfmse/.venv`. It must be portable
+   across all three Stanage node types. A100
    uses `sm80`; H100 and H100 NVL use `sm90`, and the H100-NVL nodes use a
    different CPU architecture. The batch script detects the allocated GPU before
    compiling CUDA extensions. GPU nodes now run EL9, so check `module avail`
-   before accepting the example GCC/CUDA module names.
+   if the CUDA compiler needs to be supplied through a module.
    `requirements_version.txt` is the cross-host version contract; install a
    CUDA-enabled PyTorch build matching those pins and the host driver/toolkit.
 3. Validate everything without launching training:
@@ -73,7 +77,7 @@ The login-side check cannot verify worker GPU/driver compatibility. Before
 releasing the full array, run one reduced task into a separate output root:
 
 ```bash
-CFMSE_LOG_ROOT=/mnt/parscratch/users/USER/cfmse-smoke \
+CFMSE_LOG_ROOT="$EXP/cfmse/logs-smoke" \
 CFMSE_TRAIN_EXTRA_ARGS='--dummy --max_steps 1 --num_eval_files 0 --nolog' \
 xps/stanage/submit.sh --array=0
 ```
@@ -103,6 +107,15 @@ xps/mimas.sh finetune
 # Or, once the checkpoint exists, run both GPU pairs concurrently:
 xps/mimas.sh all
 ```
+
+Interactive Phoebe/Mimas launchers and the Stanage submit helper tee their full
+terminal output to `$EXP/cfmse/logs/launcher/`. If a command fails, the wrapper
+prints the failing command and transcript path, then waits for Enter when stdin
+is a terminal, so an error window does not disappear. Set
+`CFMSE_PAUSE_ON_ERROR=0` for non-interactive automation. Batch-task failures are
+printed to the normal Slurm `.err` file. The launchers still stop after a failed
+preflight or training command, avoiding accidental follow-on jobs with invalid
+state.
 
 The default phase is training. To evaluate completed runs using the best-PESQ
 checkpoint (falling back to `last.ckpt`), use for example
